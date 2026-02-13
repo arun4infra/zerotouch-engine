@@ -79,20 +79,35 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 9. THE KSOPS_Adapter SHALL return Input_Prompt for tenant_org_name with type "string"
 10. THE KSOPS_Adapter SHALL return Input_Prompt for tenant_repo_name with type "string"
 
-### Requirement 5: Bootstrap Script References
+### Requirement 5: Pre-Work Script References
+
+**User Story:** As a ZTC engine, I want pre-work script references executed before bootstrap, so that Age keypair and secrets are prepared.
+
+#### Acceptance Criteria
+
+1. THE KSOPS_Adapter SHALL return Script_Reference for 08b-generate-age-keys.sh in pre_work phase
+2. THE KSOPS_Adapter SHALL return Script_Reference for setup-env-secrets.sh in pre_work phase
+3. THE KSOPS_Adapter SHALL return Script_Reference for retrieve-age-key.sh in pre_work phase
+4. THE KSOPS_Adapter SHALL return Script_Reference for inject-offline-key.sh in pre_work phase
+5. THE KSOPS_Adapter SHALL return Script_Reference for create-age-backup.sh in pre_work phase
+6. THE KSOPS_Adapter SHALL return Script_Reference for 08b-backup-age-to-s3.sh in pre_work phase
+7. THE Script_References SHALL include S3 credentials in secret_env_vars where needed
+
+### Requirement 6: Bootstrap Script References
 
 **User Story:** As a ZTC engine, I want bootstrap script references with context data, so that scripts execute with correct parameters.
 
 #### Acceptance Criteria
 
-1. THE KSOPS_Adapter SHALL return Script_Reference for 08a-install-ksops.sh in bootstrap phase
-2. THE KSOPS_Adapter SHALL return Script_Reference for 08b-generate-age-keys.sh with S3 credentials in context_data
-3. THE KSOPS_Adapter SHALL return Script_Reference for 08c-inject-age-key.sh in bootstrap phase
-4. THE KSOPS_Adapter SHALL return Script_Reference for 08d-create-age-backup.sh in bootstrap phase
-5. THE KSOPS_Adapter SHALL return Script_Reference for apply-env-substitution.sh with tenant repo URLs in context_data
-6. THE KSOPS_Adapter SHALL return Script_Reference for 08e-deploy-ksops-package.sh in bootstrap phase
+1. THE KSOPS_Adapter SHALL return Script_Reference for 00-inject-identities.sh in bootstrap phase
+2. THE KSOPS_Adapter SHALL return Script_Reference for 03-bootstrap-storage.sh with S3 credentials in context_data
+3. THE KSOPS_Adapter SHALL return Script_Reference for 08a-install-ksops.sh in bootstrap phase
+4. THE KSOPS_Adapter SHALL return Script_Reference for 08c-inject-age-key.sh in bootstrap phase
+5. THE KSOPS_Adapter SHALL return Script_Reference for 08d-create-age-backup.sh in bootstrap phase
+6. THE KSOPS_Adapter SHALL return Script_Reference for apply-env-substitution.sh with tenant repo URLs in context_data
+7. THE KSOPS_Adapter SHALL return Script_Reference for 08e-deploy-ksops-package.sh in bootstrap phase
 
-### Requirement 6: Post-Work Script References
+### Requirement 7: Post-Work Script References
 
 **User Story:** As a ZTC engine, I want post-work script references, so that KSOPS readiness is verified before proceeding.
 
@@ -101,7 +116,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 1. THE KSOPS_Adapter SHALL return Script_Reference for 09c-wait-ksops-sidecar.sh in post_work phase
 2. THE Script_Reference SHALL include timeout value in context_data
 
-### Requirement 7: Validation Script References
+### Requirement 8: Validation Script References
 
 **User Story:** As a ZTC engine, I want validation script references, so that KSOPS deployment can be verified.
 
@@ -115,19 +130,21 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 6. THE KSOPS_Adapter SHALL return Script_Reference for validate-sops-encryption.sh in validation phase
 7. THE KSOPS_Adapter SHALL return Script_Reference for validate-age-key-decryption.sh in validation phase
 
-### Requirement 8: Script Extraction and Embedding
+### Requirement 9: Script Extraction and Embedding
 
 **User Story:** As a ZTC engine, I want scripts embedded as package resources, so that they can be extracted to secure temp directories during execution.
 
 #### Acceptance Criteria
 
-1. THE KSOPS_Adapter SHALL embed all bootstrap scripts in ztc.adapters.ksops.scripts.bootstrap package
-2. THE KSOPS_Adapter SHALL embed all post_work scripts in ztc.adapters.ksops.scripts.post_work package
-3. THE KSOPS_Adapter SHALL embed all validation scripts in ztc.adapters.ksops.scripts.validation package
-4. WHEN the ZTC_Engine extracts scripts, THE System SHALL preserve executable permissions
-5. WHEN the ZTC_Engine extracts scripts, THE System SHALL inline helper functions from zerotouch-platform
+1. THE KSOPS_Adapter SHALL embed all pre_work scripts in ztc.adapters.ksops.scripts.pre_work package
+2. THE KSOPS_Adapter SHALL embed all bootstrap scripts in ztc.adapters.ksops.scripts.bootstrap package
+3. THE KSOPS_Adapter SHALL embed all post_work scripts in ztc.adapters.ksops.scripts.post_work package
+4. THE KSOPS_Adapter SHALL embed all validation scripts in ztc.adapters.ksops.scripts.validation package
+5. THE KSOPS_Adapter SHALL embed all generator scripts in ztc.adapters.ksops.scripts.generators package
+6. WHEN the ZTC_Engine extracts scripts, THE System SHALL preserve executable permissions
+7. WHEN the ZTC_Engine extracts scripts, THE System SHALL inline helper functions from zerotouch-platform
 
-### Requirement 9: Context File Generation
+### Requirement 10: Context File Generation
 
 **User Story:** As a ZTC engine, I want context files generated for each script, so that parameters are passed securely without CLI arguments.
 
@@ -139,7 +156,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 4. WHEN generating context files, THE System SHALL include S3 credentials for scripts that require them
 5. WHEN generating context files, THE System SHALL include GitHub App credentials for scripts that require them
 
-### Requirement 10: Capability Data Provision
+### Requirement 11: Capability Data Provision
 
 **User Story:** As a ZTC engine, I want the KSOPS adapter to provide secrets-management capability, so that dependent adapters can access Age key metadata.
 
@@ -150,7 +167,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 3. THE secrets-management capability SHALL include S3 bucket name
 4. THE secrets-management capability SHALL include SOPS configuration path
 
-### Requirement 11: Capability Dependency Resolution
+### Requirement 12: Capability Dependency Resolution
 
 **User Story:** As a ZTC engine, I want the KSOPS adapter to require kubernetes-api capability, so that it executes after cluster creation.
 
@@ -160,7 +177,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 2. WHEN the ZTC_Engine resolves dependencies, THE System SHALL execute KSOPS adapter after adapters providing kubernetes-api
 3. WHEN kubernetes-api capability is unavailable, THE ZTC_Engine SHALL fail with dependency error
 
-### Requirement 12: Adapter Registry Integration
+### Requirement 13: Adapter Registry Integration
 
 **User Story:** As a ZTC engine, I want the KSOPS adapter registered, so that it appears in ztc init selection menus.
 
@@ -171,7 +188,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 3. THE Adapter_Registry SHALL validate adapter implements PlatformAdapter interface
 4. WHEN running ztc init, THE System SHALL display KSOPS adapter in secrets_management selection group
 
-### Requirement 13: Render Method Implementation
+### Requirement 14: Render Method Implementation
 
 **User Story:** As a ZTC engine, I want the render method to generate manifests and capability data, so that the adapter integrates with the rendering pipeline.
 
@@ -183,17 +200,18 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 4. THE render method SHALL return AdapterOutput with capabilities dictionary containing secrets-management
 5. THE render method SHALL return AdapterOutput with empty stages list
 
-### Requirement 14: Script Enum Definition
+### Requirement 15: Script Enum Definition
 
 **User Story:** As a developer, I want script paths defined as enums, so that typos are caught at class load time.
 
 #### Acceptance Criteria
 
-1. THE KSOPS_Adapter SHALL define KSOPSScripts enum with all script paths
-2. THE KSOPSScripts enum SHALL validate script files exist at class load time
-3. WHEN referencing scripts, THE KSOPS_Adapter SHALL use enum values instead of string literals
+1. THE KSOPS_Adapter SHALL define KSOPSScripts enum with all script paths (pre_work, bootstrap, post_work, validation, generators)
+2. THE KSOPSScripts enum SHALL include 28 total script paths (6 pre_work + 7 bootstrap + 1 post_work + 7 validation + 7 generators)
+3. THE KSOPSScripts enum SHALL validate script files exist at class load time
+4. WHEN referencing scripts, THE KSOPS_Adapter SHALL use enum values instead of string literals
 
-### Requirement 15: Helper Function Inlining
+### Requirement 16: Helper Function Inlining
 
 **User Story:** As a developer, I want helper functions inlined into scripts, so that scripts are self-contained without external dependencies.
 
@@ -204,7 +222,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 3. WHEN extracting scripts, THE System SHALL remove source statements for external helpers
 4. WHEN extracting scripts, THE System SHALL preserve core business logic unchanged
 
-### Requirement 16: Error Handling and Validation
+### Requirement 17: Error Handling and Validation
 
 **User Story:** As a platform operator, I want clear error messages, so that I can troubleshoot configuration issues.
 
@@ -215,7 +233,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 3. WHEN script execution fails, THE System SHALL display script name and exit code
 4. WHEN context file is missing, THE System SHALL display descriptive error message
 
-### Requirement 17: Adapter Versioning
+### Requirement 18: Adapter Versioning
 
 **User Story:** As a platform operator, I want adapter versions tracked, so that I can pin specific KSOPS versions.
 

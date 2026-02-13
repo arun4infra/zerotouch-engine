@@ -9,7 +9,7 @@ The KSOPS adapter integrates SOPS (Secrets OPerationS) with Age encryption into 
 - Capability-based dependency resolution (requires kubernetes-api, provides secrets-management)
 - Integration with adapter registry for CLI discovery
 
-The adapter extracts 14 scripts from zerotouch-platform, inlines helper functions, and adapts them to use JSON context files instead of CLI arguments.
+The adapter extracts 21 scripts from zerotouch-platform (6 pre-work + 7 bootstrap + 1 post-work + 7 validation), inlines helper functions, and adapts them to use JSON context files instead of CLI arguments.
 
 ## Architecture
 
@@ -20,29 +20,31 @@ ztc/adapters/ksops/
 ├── adapter.py              # KSOPSAdapter class
 ├── adapter.yaml            # Metadata and capabilities
 ├── config.py               # KSOPSConfig Pydantic model
-├── templates/              # (empty - no manifests)
+├── templates/              # Jinja2 templates for manifests
+│   ├── age-key-guardian.yaml.j2
+│   └── kustomization.yaml.j2
 └── scripts/
     ├── shared/             # Adapter-scoped shared helpers
     │   ├── s3-helpers.sh   # S3 operations (configure, retrieve, backup, exists)
     │   └── env-helpers.sh  # Multi-line environment variable handling
-    ├── bootstrap/          # 8 scripts
+    ├── pre_work/           # 6 scripts (automated pre-installation)
+    │   ├── 08b-generate-age-keys.sh      # Uses: # INCLUDE: shared/s3-helpers.sh
+    │   ├── setup-env-secrets.sh
+    │   ├── retrieve-age-key.sh           # Uses: # INCLUDE: shared/s3-helpers.sh
+    │   ├── inject-offline-key.sh
+    │   ├── create-age-backup.sh
+    │   └── 08b-backup-age-to-s3.sh
+    ├── bootstrap/          # 7 scripts
     │   ├── 00-inject-identities.sh
     │   ├── 03-bootstrap-storage.sh
     │   ├── 08a-install-ksops.sh
-    │   ├── 08b-generate-age-keys.sh      # Uses: # INCLUDE: shared/s3-helpers.sh
     │   ├── 08c-inject-age-key.sh
     │   ├── 08d-create-age-backup.sh
     │   ├── apply-env-substitution.sh
     │   └── 08e-deploy-ksops-package.sh
     ├── post_work/          # 1 script
     │   └── 09c-wait-ksops-sidecar.sh
-    ├── utilities/          # 5 scripts for CLI commands
-    │   ├── setup-env-secrets.sh
-    │   ├── retrieve-age-key.sh           # Uses: # INCLUDE: shared/s3-helpers.sh
-    │   ├── inject-offline-key.sh
-    │   ├── create-age-backup.sh
-    │   └── 08b-backup-age-to-s3.sh
-    ├── generators/         # 7 scripts for secret generation
+    ├── generators/         # 7 scripts for CLI commands
     │   ├── create-dot-env.sh             # Uses: # INCLUDE: shared/s3-helpers.sh, shared/env-helpers.sh
     │   ├── generate-platform-sops.sh
     │   ├── generate-service-env-sops.sh
@@ -117,11 +119,18 @@ from .config import KSOPSConfig
 
 class KSOPSScripts(str, Enum):
     """Script resource paths (validated at class load)"""
+    # Pre-work
+    GENERATE_AGE_KEYS = "pre_work/08b-generate-age-keys.sh"
+    SETUP_ENV_SECRETS = "pre_work/setup-env-secrets.sh"
+    RETRIEVE_AGE_KEY = "pre_work/retrieve-age-key.sh"
+    INJECT_OFFLINE_KEY = "pre_work/inject-offline-key.sh"
+    CREATE_AGE_BACKUP_UTIL = "pre_work/create-age-backup.sh"
+    BACKUP_AGE_TO_S3 = "pre_work/08b-backup-age-to-s3.sh"
+    
     # Bootstrap
     INJECT_IDENTITIES = "bootstrap/00-inject-identities.sh"
     BOOTSTRAP_STORAGE = "bootstrap/03-bootstrap-storage.sh"
     INSTALL_KSOPS = "bootstrap/08a-install-ksops.sh"
-    GENERATE_AGE_KEYS = "bootstrap/08b-generate-age-keys.sh"
     INJECT_AGE_KEY = "bootstrap/08c-inject-age-key.sh"
     CREATE_AGE_BACKUP = "bootstrap/08d-create-age-backup.sh"
     ENV_SUBSTITUTION = "bootstrap/apply-env-substitution.sh"
@@ -138,6 +147,15 @@ class KSOPSScripts(str, Enum):
     VALIDATE_CONFIG = "validation/validate-sops-config.sh"
     VALIDATE_ENCRYPTION = "validation/validate-sops-encryption.sh"
     VALIDATE_DECRYPTION = "validation/validate-age-key-decryption.sh"
+    
+    # Generators (for CLI commands)
+    GEN_CREATE_DOT_ENV = "generators/create-dot-env.sh"
+    GEN_PLATFORM_SOPS = "generators/generate-platform-sops.sh"
+    GEN_SERVICE_ENV_SOPS = "generators/generate-service-env-sops.sh"
+    GEN_CORE_SECRETS = "generators/generate-core-secrets.sh"
+    GEN_ENV_SECRETS = "generators/generate-env-secrets.sh"
+    GEN_GHCR_PULL_SECRET = "generators/generate-ghcr-pull-secret.sh"
+    GEN_TENANT_REGISTRY_SECRETS = "generators/generate-tenant-registry-secrets.sh"
 
 class KSOPSAdapter(PlatformAdapter):
     """KSOPS secrets management adapter"""
@@ -213,6 +231,85 @@ class KSOPSAdapter(PlatformAdapter):
             )
         ]
     
+    def pre_work_scripts(self) -> List[ScriptReference]:
+        """Pre-work scripts (automated pre-installation)"""
+        config = KSOPSConfig(**self.config)
+        
+        return [
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.GENERATE_AGE_KEYS,
+                description="Generate or retrieve Age keypair",
+                timeout=60,
+                context_data={
+                    "s3_endpoint": config.s3_endpoint,
+                    "s3_region": config.s3_region,
+                    "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
+                }
+            ),
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.SETUP_ENV_SECRETS,
+                description="Setup environment-specific secrets",
+                timeout=300,
+                context_data={
+                    "s3_endpoint": config.s3_endpoint,
+                    "s3_region": config.s3_region,
+                    "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
+                }
+            ),
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.RETRIEVE_AGE_KEY,
+                description="Retrieve Age key from S3",
+                timeout=60,
+                context_data={
+                    "s3_endpoint": config.s3_endpoint,
+                    "s3_region": config.s3_region,
+                    "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
+                }
+            ),
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.INJECT_OFFLINE_KEY,
+                description="Emergency: inject Age key into cluster",
+                timeout=30
+            ),
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.CREATE_AGE_BACKUP_UTIL,
+                description="Create Age key backup utility",
+                timeout=30
+            ),
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.BACKUP_AGE_TO_S3,
+                description="Backup Age key to S3",
+                timeout=60,
+                context_data={
+                    "s3_endpoint": config.s3_endpoint,
+                    "s3_region": config.s3_region,
+                    "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
+                }
+            )
+        ]
+    
     def bootstrap_scripts(self) -> List[ScriptReference]:
         """Core KSOPS setup scripts"""
         config = KSOPSConfig(**self.config)
@@ -250,21 +347,6 @@ class KSOPSAdapter(PlatformAdapter):
                 resource=KSOPSScripts.INSTALL_KSOPS,
                 description="Install SOPS and Age CLI tools",
                 timeout=120
-            ),
-            ScriptReference(
-                package="ztc.adapters.ksops.scripts",
-                resource=KSOPSScripts.GENERATE_AGE_KEYS,
-                description="Generate or retrieve Age keypair",
-                timeout=60,
-                context_data={
-                    "s3_endpoint": config.s3_endpoint,
-                    "s3_region": config.s3_region,
-                    "s3_bucket_name": config.s3_bucket_name
-                },
-                secret_env_vars={
-                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
-                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
-                }
             ),
             ScriptReference(
                 package="ztc.adapters.ksops.scripts",
@@ -446,16 +528,18 @@ class KSOPSAdapter(PlatformAdapter):
         )
     
     def _get_age_public_key(self) -> str:
-        """Retrieve Age public key from S3 or cluster
+        """Retrieve Age public key from adapter state
         
-        Implementation options:
-        1. Read from S3 bucket (requires S3 client)
-        2. Read from cluster secret (requires kubectl)
-        3. Cache in platform.yaml after bootstrap
+        Implementation strategy:
+        - During bootstrap execution, the pre_work phase generates the Age keypair
+        - The ZTC engine should populate adapter state with the public key after bootstrap
+        - For initial render (before bootstrap), return empty string or placeholder
+        - After bootstrap, read from config field 'age_public_key' populated by engine
         
-        For now, assumes key is available in adapter state.
+        Note: This assumes the ZTC engine captures bootstrap outputs and makes them
+        available to subsequent render() calls. If not available, downstream adapters
+        requiring the public key will fail validation.
         """
-        # TODO: Implement actual retrieval logic
         return self.config.get("age_public_key", "")
 ```
 
@@ -1105,6 +1189,7 @@ All scripts are extracted from `zerotouch-platform/scripts/bootstrap/infra/secre
 
 | Template File | Original Source | Description |
 |---------------|-----------------|-------------|
+| `age-key-guardian.yaml.j2` | `platform/secrets/ksops/age-key-guardian.yaml` | Age key guardian deployment template |
 | `ghcr-pull-secret.yaml.j2` | `infra/secrets/ksops/templates/ghcr-pull-secret.yaml` | GitHub Container Registry pull secret template |
 | `ksops-generator.yaml.j2` | `infra/secrets/ksops/templates/ksops-generator.yaml` | KSOPS secret generator template |
 | `kustomization.yaml.j2` | `infra/secrets/ksops/templates/kustomization.yaml` | Kustomization file for KSOPS secrets |
