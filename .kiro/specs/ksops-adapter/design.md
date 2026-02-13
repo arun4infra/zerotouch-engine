@@ -415,11 +415,17 @@ class KSOPSAdapter(PlatformAdapter):
         if not k8s_capability:
             raise ValueError("KSOPS requires kubernetes-api capability")
         
+        # Retrieve Age public key from bootstrap output
+        # Note: In actual implementation, this would be read from S3 or cluster
+        # after bootstrap scripts have generated the keypair
+        age_public_key = self._get_age_public_key()
+        
         # Create secrets-management capability
         secrets_capability = SecretsManagementCapability(
             provider="ksops",
             s3_bucket=config.s3_bucket_name,
-            sops_config_path=".sops.yaml"
+            sops_config_path=".sops.yaml",
+            age_public_key=age_public_key
         )
         
         # Create typed output data (prevents secret leakage)
@@ -438,6 +444,19 @@ class KSOPSAdapter(PlatformAdapter):
             },
             data=output_data.model_dump()
         )
+    
+    def _get_age_public_key(self) -> str:
+        """Retrieve Age public key from S3 or cluster
+        
+        Implementation options:
+        1. Read from S3 bucket (requires S3 client)
+        2. Read from cluster secret (requires kubectl)
+        3. Cache in platform.yaml after bootstrap
+        
+        For now, assumes key is available in adapter state.
+        """
+        # TODO: Implement actual retrieval logic
+        return self.config.get("age_public_key", "")
 ```
 
 ### 3. Adapter Metadata (adapter.yaml)
@@ -476,6 +495,12 @@ class SecretsManagementCapability(BaseModel):
     provider: str  # "ksops", "sealed-secrets", "external-secrets"
     s3_bucket: str
     sops_config_path: str
+    age_public_key: str  # Non-sensitive, required for downstream encryption
+    
+    @property
+    def encryption_env(self) -> Dict[str, str]:
+        """Helper for downstream SOPS commands"""
+        return {"SOPS_AGE_RECIPIENTS": self.age_public_key}
 ```
 
 ### 5. Output Data Model (output.py addition)
@@ -511,27 +536,26 @@ class KSOPSOutputData(BaseModel):
 
 ### Context File Schema
 
-Each script receives a JSON context file via `$ZTC_CONTEXT_FILE`:
+Each script receives a JSON context file via `$ZTC_CONTEXT_FILE` containing **non-sensitive configuration only**. Secrets are passed via environment variables.
 
 ```json
 {
-  "s3_access_key": "string",
-  "s3_secret_key": "string",
   "s3_endpoint": "https://...",
   "s3_region": "string",
   "s3_bucket_name": "string",
   "github_app_id": 123,
   "github_app_installation_id": 456,
-  "github_app_private_key": "-----BEGIN...",
   "tenant_org_name": "string",
   "tenant_repo_name": "string",
   "timeout_seconds": 300
 }
 ```
 
+**Security Rule**: Secrets (s3_access_key, s3_secret_key, github_app_private_key, age_private_key) MUST NOT be written to context files. They are passed via `secret_env_vars` in `ScriptReference`.
+
 ### Script Context Reading Pattern
 
-All scripts follow this pattern:
+All scripts follow this hybrid pattern: configuration from JSON, secrets from environment.
 
 ```bash
 #!/usr/bin/env bash
@@ -543,13 +567,18 @@ if [[ -z "${ZTC_CONTEXT_FILE:-}" ]]; then
     exit 1
 fi
 
-# Parse with jq
-S3_ACCESS_KEY=$(jq -r '.s3_access_key' "$ZTC_CONTEXT_FILE")
-S3_SECRET_KEY=$(jq -r '.s3_secret_key' "$ZTC_CONTEXT_FILE")
+# Read configuration from context file (non-sensitive)
+S3_ENDPOINT=$(jq -r '.s3_endpoint' "$ZTC_CONTEXT_FILE")
+S3_REGION=$(jq -r '.s3_region' "$ZTC_CONTEXT_FILE")
+S3_BUCKET=$(jq -r '.s3_bucket_name' "$ZTC_CONTEXT_FILE")
+
+# Read secrets from environment variables (never from disk)
+S3_ACCESS_KEY="${S3_ACCESS_KEY:?S3_ACCESS_KEY not set}"
+S3_SECRET_KEY="${S3_SECRET_KEY:?S3_SECRET_KEY not set}"
 
 # Validate required fields
-if [[ -z "$S3_ACCESS_KEY" || "$S3_ACCESS_KEY" == "null" ]]; then
-    echo "ERROR: s3_access_key required" >&2
+if [[ -z "$S3_ENDPOINT" || "$S3_ENDPOINT" == "null" ]]; then
+    echo "ERROR: s3_endpoint required in context file" >&2
     exit 1
 fi
 

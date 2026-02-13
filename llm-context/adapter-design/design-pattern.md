@@ -436,3 +436,57 @@ def init_secrets_command(self, env: str):
 1. Shared helper function (inlined via `# INCLUDE`)
 2. Sequential adapter calls (orchestration in Python)
 3. Never script-to-script calls
+
+### 9. Capability Contracts Must Include Downstream Requirements
+
+**Problem**: Capability contracts that omit data needed by downstream adapters break the composition chain.
+
+**Example**: KSOPS generates Age keypair but doesn't expose public key in capability. Downstream adapters (Service, Team) need public key to encrypt new secrets but have no way to access it without re-fetching from S3 or knowing secrets.
+
+**Solution**: Include all non-sensitive data required for downstream operations in capability contract.
+
+```python
+# BAD: Missing public key
+class SecretsManagementCapability(BaseModel):
+    provider: str
+    s3_bucket: str
+    sops_config_path: str
+    # Downstream adapters can't encrypt secrets!
+
+# GOOD: Include public key for encryption
+class SecretsManagementCapability(BaseModel):
+    provider: str
+    s3_bucket: str
+    sops_config_path: str
+    age_public_key: str  # Non-sensitive, required for encryption
+    
+    @property
+    def encryption_env(self) -> Dict[str, str]:
+        """Helper for downstream SOPS commands"""
+        return {"SOPS_AGE_RECIPIENTS": self.age_public_key}
+```
+
+**Usage in downstream adapter:**
+
+```python
+async def render(self, ctx: ContextSnapshot) -> AdapterOutput:
+    # Access secrets capability
+    secrets_cap = ctx.get_capability_data('secrets-management')
+    
+    # Use public key to encrypt service secrets
+    ScriptReference(
+        resource="generate-service-secrets.sh",
+        context_data={
+            "age_public_key": secrets_cap.age_public_key,
+            "service_name": "api-gateway"
+        }
+    )
+```
+
+**Benefits:**
+- Maintains least-privilege: public key is non-sensitive
+- Enables composition: downstream adapters can encrypt without S3 access
+- Clear contract: capability explicitly declares what it provides
+- Prevents secret sprawl: only KSOPS adapter needs private key
+
+**Rule**: Capability contracts must include all non-sensitive data required by downstream consumers

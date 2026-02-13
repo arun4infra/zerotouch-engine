@@ -31,3 +31,20 @@ This document tracks design feedback that was evaluated and intentionally reject
 - "Community Adapters" can still use Enums - they're just Python code
 
 **Status**: REJECTED - Keep Enum-based script registry for type safety
+
+---
+
+### 3. Jinja2 Templates for Script Includes
+
+**Feedback**: Use Jinja2 `{% include %}` directives instead of custom `# INCLUDE` markers for script composition.
+
+**Rationale for Rejection**:
+- Scripts are executable artifacts, not templates
+- Jinja2 is for manifest/config generation (YAML), not bash scripts
+- Adds unnecessary build complexity - requires template rendering at extraction time
+- `# INCLUDE` markers are simple regex replacement during `get_embedded_script()`
+- Talos adapter already uses `# INCLUDE` pattern successfully
+- Both approaches have same line number preservation issues
+- Violates separation of concerns: Jinja2 for data templating, not code composition
+
+**Status**: REJECTED - Keep `# INCLUDE` markers for script composition
