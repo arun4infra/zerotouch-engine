@@ -1,0 +1,45 @@
+# ZTC Embedded Version Matrix
+# Single Source of Truth for Adapter Versions
+# All versions must be explicitly defined - no runtime discovery
+
+components:
+  talos:
+    supported_versions:
+      - v1.10.x
+      - v1.11.5
+    default_version: v1.11.5
+    artifacts:
+      v1.11.5:
+        factory_image_id: "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+        image_url: "https://factory.talos.dev/image/{factory_image_id}/{version}/metal-amd64.raw.xz"
+      v1.10.x:
+        factory_image_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"
+        image_url: "https://factory.talos.dev/image/{factory_image_id}/{version}/metal-amd64.raw.xz"
+  
+  cilium:
+    supported_versions:
+      - v1.16.x
+      - v1.17.x
+      - v1.18.5
+    default_version: v1.18.5
+    artifacts:
+      v1.18.5:
+        operator_image: "quay.io/cilium/operator-generic:v1.18.5@sha256:36c3f6f14c8ced7f45b40b0a927639894b44269dd653f9528e7a0dc363a4eb99"
+        agent_image: "quay.io/cilium/cilium:v1.18.5"
+      v1.17.x:
+        operator_image: "quay.io/cilium/operator-generic:v1.17.0"
+        agent_image: "quay.io/cilium/cilium:v1.17.0"
+      v1.16.x:
+        operator_image: "quay.io/cilium/operator-generic:v1.16.0"
+        agent_image: "quay.io/cilium/cilium:v1.16.0"
+  
+  hetzner:
+    api_version: v1
+    base_url: "https://api.hetzner.cloud/v1"
+    supported_versions:
+      - v1.0
+    default_version: v1.0
+
+# Remote versions URL (optional update mechanism)
+remote_versions_url: "https://versions.ztc.dev/versions.yaml"
+remote_versions_signature_url: "https://versions.ztc.dev/versions.yaml.sig"

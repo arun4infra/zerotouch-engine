@@ -3,11 +3,11 @@
 ## Phase 1: Project Setup & Core Infrastructure
 
 - [x] 1. Initialize ZTC project structure with Poetry
-- [ ] 2. Set up Python package structure (ztc/ directory)
-- [ ] 3. Configure pyproject.toml with dependencies (Typer, Rich, Pydantic, Jinja2, PyYAML)
-- [ ] 4. Create base directory structure for adapters, templates, and scripts
-- [ ] 5. Set up pytest configuration and test directory structure
-- [ ] 6. **CHECKPOINT 1: Project Foundation Ready**
+- [x] 2. Set up Python package structure (ztc/ directory)
+- [x] 3. Configure pyproject.toml with dependencies (Typer, Rich, Pydantic, Jinja2, PyYAML)
+- [x] 4. Create base directory structure for adapters, templates, and scripts
+- [x] 5. Set up pytest configuration and test directory structure
+- [*] 6. **CHECKPOINT 1: Project Foundation Ready**
   - **Deliverable**: ZTC project initialized with Poetry, all dependencies installed, directory structure created
   - **Verification Criteria**:
     - `poetry install` completes successfully
@@ -18,100 +18,115 @@
 
 ## Phase 2: Capability Interface & Base Adapter Contract
 
-- [ ] 7. Implement Capability enum and Pydantic models (ztc/interfaces/capabilities.py)
-- [ ] 8. Create CAPABILITY_CONTRACTS registry binding enums to models
-- [ ] 9. Implement PlatformAdapter abstract base class (ztc/adapters/base.py)
-- [ ] 10. Add InputPrompt, ScriptReference, PipelineStage, AdapterOutput dataclasses
-- [ ] 11. Implement ScriptReference.__post_init__ with static validation
-- [ ] 12. Create AdapterRegistry class for adapter discovery and loading
-- [ ] 13. Write unit tests for capability contracts and base adapter interface
-- [ ] 14. **CHECKPOINT 2: Adapter Contract Established**
+- [x] 7. Implement Capability enum and Pydantic models (ztc/interfaces/capabilities.py)
+- [x] 8. Create CAPABILITY_CONTRACTS registry binding enums to models
+- [x] 9. Implement PlatformAdapter abstract base class (ztc/adapters/base.py)
+- [x] 10. Add InputPrompt, ScriptReference, PipelineStage, AdapterOutput dataclasses
+- [x] 11. Implement ScriptReference.__post_init__ with static validation
+- [x] 12. Create AdapterRegistry class for adapter discovery and loading
+- [x] 13. Write unit tests for capability contracts and base adapter interface
+- [x] 14. **CHECKPOINT 2: Adapter Contract Established**
   - **Deliverable**: Type-safe capability system and adapter base class with validation
   - **Verification Criteria**:
     - All Capability enums map to Pydantic models in CAPABILITY_CONTRACTS
-    - PlatformAdapter abstract methods defined (get_required_inputs, pre_work_scripts, post_work_scripts, validation_scripts, render)
+    - PlatformAdapter abstract methods defined (get_required_inputs, pre_work_scripts, bootstrap_scripts, post_work_scripts, validation_scripts, render)
     - ScriptReference validates script existence at instantiation
   - **Test Script**: Run `poetry run pytest tests/unit/test_adapter_contract.py` to validate capability contracts, adapter interface, and script validation
   - **Success Criteria**: All capability models validate correctly, adapter interface enforces contracts, script validation catches missing resources
 
 ## Phase 3: Hetzner Adapter Implementation
 
-- [ ] 15. Create Hetzner adapter directory structure (ztc/adapters/hetzner/)
-- [ ] 16. Implement HetznerConfig Pydantic model with validation
-- [ ] 17. Create adapter.yaml metadata file for Hetzner
-- [ ] 18. Implement HetznerAdapter class with get_required_inputs()
-- [ ] 19. Create embedded scripts (enable-rescue-mode.sh, validate-server-ids.sh)
-- [ ] 20. Implement HetznerAdapter.render() with async API calls
-- [ ] 21. Add CloudInfrastructureCapability output to render()
-- [ ] 22. Write unit tests for Hetzner adapter configuration and rendering
-- [ ] 23. **CHECKPOINT 3: Hetzner Adapter Functional**
+- [x] 15. Create Hetzner adapter directory structure (ztc/adapters/hetzner/ with pre_work/, bootstrap/, post_work/, validation/ folders)
+- [x] 16. Implement HetznerConfig Pydantic model with validation
+- [x] 17. Create adapter.yaml metadata file for Hetzner
+- [x] 18. Implement HetznerAdapter class with get_required_inputs()
+- [x] 19. Implement HetznerAdapter.render() with async Hetzner API calls (server ID lookup, metadata queries)
+- [x] 20. Add CloudInfrastructureCapability output to render() (provider, server_ids, region)
+- [x] 21. Write unit tests for Hetzner adapter configuration and rendering
+- [x] 22. **CHECKPOINT 3: Hetzner Adapter Functional**
   - **Deliverable**: Hetzner adapter with API integration and capability output
   - **Verification Criteria**:
     - HetznerAdapter validates config via Pydantic model
-    - render() method queries Hetzner API and returns server IDs
-    - CloudInfrastructureCapability output includes provider, server_ids, rescue_mode_enabled
-    - Scripts embedded and accessible via get_embedded_script()
+    - render() method queries Hetzner API and returns server metadata
+    - CloudInfrastructureCapability output includes provider, server_ids, region
+    - Adapter follows standard folder structure (pre_work/, bootstrap/, post_work/, validation/ folders exist even if empty)
+    - No bash scripts required (pure Python API integration)
   - **Test Script**: Run `poetry run pytest tests/integration/test_hetzner_adapter.py` to validate Hetzner API integration (mocked), config validation, and capability output
-  - **Success Criteria**: Adapter renders successfully with mocked API, capability data validates against contract, scripts extractable
+  - **Success Criteria**: Adapter renders successfully with mocked API, capability data validates against contract, folder structure is standard
 
 ## Phase 4: Cilium Adapter Implementation
 
-- [ ] 24. Create Cilium adapter directory structure (ztc/adapters/cilium/)
-- [ ] 25. Implement CiliumConfig Pydantic model
-- [ ] 26. Create adapter.yaml metadata with capability requirements (kubernetes-api)
-- [ ] 27. Implement CiliumAdapter class with BGP configuration support
-- [ ] 28. Create Jinja2 templates (manifests.yaml.j2)
-- [ ] 29. Create embedded scripts (wait-cilium.sh, wait-gateway-api.sh, validate-cni.sh)
-- [ ] 30. Implement CiliumAdapter.render() with template rendering
-- [ ] 31. Add CNIArtifacts and GatewayAPICapability outputs
-- [ ] 32. Implement get_invalid_fields() for differential validation
-- [ ] 33. Write unit tests for Cilium adapter and template rendering
-- [ ] 34. **CHECKPOINT 4: Cilium Adapter Functional**
+- [x] 23. Create Cilium adapter directory structure (ztc/adapters/cilium/ with pre_work/, bootstrap/, post_work/, validation/ folders)
+- [x] 24. Implement CiliumConfig Pydantic model
+- [x] 25. Create adapter.yaml metadata with capability requirements (kubernetes-api)
+- [x] 26. Implement CiliumAdapter class with BGP configuration support
+- [x] 27. Create Jinja2 templates (manifests.yaml.j2)
+- [x] 28. Extract and adapt wait-cilium.sh from zerotouch-platform/scripts/bootstrap/wait/06-wait-cilium.sh to bootstrap/wait-cilium.sh (inline kubectl_retry function)
+- [x] 29. Extract and adapt wait-gateway-api.sh from zerotouch-platform/scripts/bootstrap/wait/06a-wait-gateway-api.sh to bootstrap/wait-gateway-api.sh (Gateway API CRD validation)
+- [x] 30. Extract and adapt validate-cni.sh from zerotouch-platform/scripts/bootstrap/validation/ to validation/validate-cni.sh (pod networking verification)
+- [x] 31. Implement CiliumAdapter.render() with template rendering
+- [x] 32. Add CNIArtifacts and GatewayAPICapability outputs
+- [x] 33. Implement get_invalid_fields() for differential validation
+- [x] 34. Write unit tests for Cilium adapter and template rendering
+- [x] 35. **CHECKPOINT 4: Cilium Adapter Functional**
   - **Deliverable**: Cilium adapter with template rendering and capability outputs
   - **Verification Criteria**:
     - CiliumAdapter renders manifests via Jinja2 templates
     - CNIArtifacts capability includes manifests content
     - GatewayAPICapability indicates CRDs embedded
     - Differential validation detects OS changes
-  - **Test Script**: Run `poetry run pytest tests/integration/test_cilium_adapter.py` to validate template rendering, capability outputs, and validation logic
-  - **Success Criteria**: Templates render correctly, capability data validates, differential validation works
+    - Scripts follow standard folder structure (pre_work/, bootstrap/, post_work/, validation/)
+    - Bootstrap scripts (wait-cilium.sh, wait-gateway-api.sh) are core CNI readiness logic
+    - Scripts extracted from zerotouch-platform with inline utility functions
+  - **Test Script**: Run `poetry run pytest tests/integration/test_cilium_adapter.py` to validate template rendering, capability outputs, validation logic, and extracted scripts
+  - **Success Criteria**: Templates render correctly, capability data validates, differential validation works, scripts use context files, folder structure is standard
 
 ## Phase 5: Talos Adapter Implementation
 
-- [ ] 35. Create Talos adapter directory structure (ztc/adapters/talos/)
-- [ ] 36. Implement TalosConfig and NodeConfig Pydantic models
-- [ ] 37. Create TalosScripts enum for static validation
-- [ ] 38. Create adapter.yaml metadata with capability provides/requires
-- [ ] 39. Implement TalosAdapter class with node configuration
-- [ ] 40. Create Jinja2 templates (controlplane.yaml.j2, worker.yaml.j2, talosconfig.j2)
-- [ ] 41. Create embedded scripts with context_data (02-embed-network-manifests.sh, 03-install-talos.sh, 04-bootstrap-talos.sh, 05-add-worker-nodes.sh, validate-cluster.sh)
-- [ ] 42. Implement TalosAdapter.render() with per-node config generation
-- [ ] 43. Add KubernetesAPICapability output
-- [ ] 44. Write unit tests for Talos adapter and multi-node rendering
-- [ ] 45. **CHECKPOINT 5: Talos Adapter Functional**
+- [x] 36. Create Talos adapter directory structure (ztc/adapters/talos/ with pre_work/, bootstrap/, post_work/, validation/ folders)
+- [x] 37. Implement TalosConfig and NodeConfig Pydantic models
+- [x] 38. Create TalosScripts enum for static validation
+- [x] 39. Create adapter.yaml metadata with capability provides/requires
+- [x] 40. Implement TalosAdapter class with node configuration
+- [x] 41. Create Jinja2 templates (controlplane.yaml.j2, worker.yaml.j2, talosconfig.j2)
+- [x] 42. Extract and adapt enable-rescue-mode.sh from zerotouch-platform/scripts/bootstrap/00-enable-rescue-mode.sh to pre_work/enable-rescue-mode.sh (inline Hetzner API functions from helpers/hetzner-api.sh, convert CLI args to context_data)
+- [x] 43. Extract and adapt 02-embed-network-manifests.sh from zerotouch-platform/scripts/bootstrap/install/02-embed-network-manifests.sh to bootstrap/embed-network-manifests.sh (manifest embedding logic)
+- [x] 44. Extract and adapt 03-install-talos.sh from zerotouch-platform/scripts/bootstrap/install/03-install-talos.sh to bootstrap/install-talos.sh (convert CLI args to context_data, remove sshpass dependency by using context)
+- [x] 45. Extract and adapt 04-bootstrap-talos.sh from zerotouch-platform/scripts/bootstrap/install/04-bootstrap-talos.sh to bootstrap/bootstrap-talos.sh (remove OIDC patch logic, use base config)
+- [x] 46. Extract and adapt 05-add-worker-nodes.sh from zerotouch-platform/scripts/bootstrap/install/05-add-worker-nodes.sh to bootstrap/add-worker-nodes.sh (worker addition logic with context_data)
+- [x] 47. Extract and adapt validate-cluster.sh from zerotouch-platform/scripts/bootstrap/validation/99-validate-cluster.sh to validation/validate-cluster.sh (node join verification)
+- [x] 48. Implement TalosAdapter.render() with per-node config generation
+- [x] 49. Add KubernetesAPICapability output
+- [x] 50. Write unit tests for Talos adapter and multi-node rendering
+- [x] 51. **CHECKPOINT 5: Talos Adapter Functional**
   - **Deliverable**: Talos adapter with multi-node config generation and capability output
   - **Verification Criteria**:
     - TalosAdapter renders separate configs for controlplane and worker nodes
     - KubernetesAPICapability includes cluster_endpoint and kubeconfig_path
-    - Scripts use context_data instead of args
+    - Pre-work script (enable-rescue-mode.sh) has inlined Hetzner API functions (no external dependencies)
+    - Bootstrap scripts (install-talos.sh, bootstrap-talos.sh, add-worker-nodes.sh) are core OS installation logic
+    - All scripts follow standard folder structure (pre_work/, bootstrap/, post_work/, validation/)
+    - All scripts extracted from zerotouch-platform and adapted to use context_data
     - Templates embed CNI manifests from upstream capability
-  - **Test Script**: Run `poetry run pytest tests/integration/test_talos_adapter.py` to validate multi-node rendering, capability integration, and context file generation
-  - **Success Criteria**: Node configs render correctly, capability data validates, context files generated for scripts
+    - All scripts read context via $ZTC_CONTEXT_FILE (no CLI args)
+    - Adapter is fully self-contained with no cross-adapter dependencies
+  - **Test Script**: Run `poetry run pytest tests/integration/test_talos_adapter.py` to validate multi-node rendering, capability integration, context file generation, script independence, folder structure, and extracted scripts
+  - **Success Criteria**: Node configs render correctly, capability data validates, context files generated for scripts, scripts use jq to read context, pre-work script is self-contained, folder structure is standard
 
 ## Phase 6: CLI Framework & Init Workflow
 
-- [ ] 46. Implement CLI app structure with Typer (ztc/cli.py)
-- [ ] 47. Create SelectionGroup dataclass for dynamic UI grouping
-- [ ] 48. Implement build_selection_groups() for registry-driven UI
-- [ ] 49. Create InitWorkflow class with progressive input collection
-- [ ] 50. Implement handle_group_selection() with conflict cleanup
-- [ ] 51. Implement collect_adapter_inputs() with Pydantic validation
-- [ ] 52. Implement validate_downstream_adapters() with differential validation
-- [ ] 53. Add display_summary() with Rich table output
-- [ ] 54. Implement platform.yaml generation and writing
-- [ ] 55. Add --resume flag support for resuming configuration
-- [ ] 56. Write integration tests for init workflow with mocked prompts
-- [ ] 57. **CHECKPOINT 6: Init Command Functional**
+- [x] 52. Implement CLI app structure with Typer (ztc/cli.py)
+- [x] 53. Create SelectionGroup dataclass for dynamic UI grouping
+- [x] 54. Implement build_selection_groups() for registry-driven UI
+- [x] 55. Create InitWorkflow class with progressive input collection
+- [x] 56. Implement handle_group_selection() with conflict cleanup
+- [x] 57. Implement collect_adapter_inputs() with Pydantic validation
+- [x] 58. Implement validate_downstream_adapters() with differential validation
+- [x] 59. Add display_summary() with Rich table output
+- [x] 60. Implement platform.yaml generation and writing
+- [x] 61. Add --resume flag support for resuming configuration
+- [x] 62. Write integration tests for init workflow with mocked prompts
+- [x] 63. **CHECKPOINT 6: Init Command Functional**
   - **Deliverable**: Interactive CLI wizard generating platform.yaml
   - **Verification Criteria**:
     - `ztc init` prompts for cloud provider, network, OS selections
@@ -123,16 +138,16 @@
 
 ## Phase 7: Version Registry & Remote Fetch
 
-- [ ] 58. Create embedded versions.yaml with component versions
-- [ ] 59. Implement VersionRegistry class with embedded version loading
-- [ ] 60. Add start_background_fetch() for async remote version fetch
-- [ ] 61. Implement get_versions_async() with explicit await and timeout
-- [ ] 62. Add version source tracking (_version_source field)
-- [ ] 63. Implement _fetch_remote_async() with signature verification
-- [ ] 64. Add get_version_source() for user transparency
-- [ ] 65. Integrate version registry into init workflow with user notification
-- [ ] 66. Write unit tests for version fetching and fallback behavior
-- [ ] 67. **CHECKPOINT 7: Version Management Functional**
+- [x] 64. Create embedded versions.yaml with component versions
+- [x] 65. Implement VersionRegistry class with embedded version loading
+- [x] 66. Add start_background_fetch() for async remote version fetch
+- [x] 67. Implement get_versions_async() with explicit await and timeout
+- [x] 68. Add version source tracking (_version_source field)
+- [x] 69. Implement _fetch_remote_async() with signature verification
+- [x] 70. Add get_version_source() for user transparency
+- [x] 71. Integrate version registry into init workflow with user notification
+- [x] 72. Write unit tests for version fetching and fallback behavior
+- [x] 73. **CHECKPOINT 7: Version Management Functional**
   - **Deliverable**: Version registry with remote fetch and explicit user notification
   - **Verification Criteria**:
     - Embedded versions.yaml loads successfully
@@ -144,17 +159,17 @@
 
 ## Phase 8: Engine & Dependency Resolution
 
-- [ ] 68. Implement PlatformEngine class (ztc/engine.py)
-- [ ] 69. Create shared Jinja2 environment with PrefixLoader
-- [ ] 70. Implement _create_shared_jinja_env() with adapter namespacing
-- [ ] 71. Create ContextSnapshot class for immutable context
-- [ ] 72. Implement PlatformContext class for mutable engine state
-- [ ] 73. Add get_capability_data() with enum-based type-safe access
-- [ ] 74. Implement DependencyResolver with topological sort
-- [ ] 75. Add capability registry building and validation
-- [ ] 76. Implement resolve_adapters() with phase grouping
-- [ ] 77. Write unit tests for dependency resolution and capability validation
-- [ ] 78. **CHECKPOINT 8: Engine Core Functional**
+- [x] 74. Implement PlatformEngine class (ztc/engine.py)
+- [x] 75. Create shared Jinja2 environment with PrefixLoader
+- [x] 76. Implement _create_shared_jinja_env() with adapter namespacing
+- [x] 77. Create ContextSnapshot class for immutable context
+- [x] 78. Implement PlatformContext class for mutable engine state
+- [x] 79. Add get_capability_data() with enum-based type-safe access
+- [x] 80. Implement DependencyResolver with topological sort
+- [x] 81. Add capability registry building and validation
+- [x] 82. Implement resolve_adapters() with phase grouping
+- [x] 83. Write unit tests for dependency resolution and capability validation
+- [x] 84. **CHECKPOINT 8: Engine Core Functional**
   - **Deliverable**: Engine with dependency resolution and capability management
   - **Verification Criteria**:
     - Shared Jinja environment created with adapter prefixes
@@ -166,19 +181,19 @@
 
 ## Phase 9: Render Pipeline Implementation
 
-- [ ] 79. Implement Engine.render() async method
-- [ ] 80. Add workspace creation and cleanup logic
-- [ ] 81. Implement adapter rendering loop with context snapshots
-- [ ] 82. Add write_adapter_output() for manifest writing
-- [ ] 83. Implement generate_pipeline_yaml() from adapter stages
-- [ ] 84. Add write_debug_scripts() for observability
-- [ ] 85. Implement validate_artifacts() against output schemas
-- [ ] 86. Add atomic_swap_generated() for atomic directory replacement
-- [ ] 87. Implement lock file generation with artifact hashing
-- [ ] 88. Add streaming file hashing (hash_file with chunks)
-- [ ] 89. Create render CLI command with --debug and --partial flags
-- [ ] 90. Write integration tests for full render pipeline
-- [ ] 91. **CHECKPOINT 9: Render Pipeline Functional**
+- [x] 85. Implement Engine.render() async method
+- [x] 86. Add workspace creation and cleanup logic
+- [x] 87. Implement adapter rendering loop with context snapshots
+- [x] 88. Add write_adapter_output() for manifest writing
+- [x] 89. Implement generate_pipeline_yaml() from adapter stages
+- [x] 90. Add write_debug_scripts() for observability
+- [x] 91. Implement validate_artifacts() against output schemas
+- [x] 92. Add atomic_swap_generated() for atomic directory replacement
+- [x] 93. Implement lock file generation with artifact hashing
+- [x] 94. Add streaming file hashing (hash_file with chunks)
+- [x] 95. Create render CLI command with --debug and --partial flags
+- [x] 96. Write integration tests for full render pipeline
+- [x] 97. **CHECKPOINT 9: Render Pipeline Functional**
   - **Deliverable**: Render command generating artifacts and pipeline YAML
   - **Verification Criteria**:
     - `ztc render` reads platform.yaml and executes adapters
@@ -191,19 +206,19 @@
 
 ## Phase 10: Bootstrap Command & Runtime Dependencies
 
-- [ ] 92. Implement SecureTempDir context manager with signal handling
-- [ ] 93. Add _signal_handler() for SIGINT/SIGTERM cleanup
-- [ ] 94. Create VacuumCommand for stale temp directory cleanup
-- [ ] 95. Implement find_stale_directories() with age filtering
-- [ ] 96. Add vacuum CLI command and automatic startup execution
-- [ ] 97. Implement BootstrapCommand class
-- [ ] 98. Add validate_runtime_dependencies() for jq/yq checking
-- [ ] 99. Implement extract_all_scripts() with AOT extraction
-- [ ] 100. Add context file writing for scripts with context_data
-- [ ] 101. Generate runtime_manifest.json for stage-executor.sh
-- [ ] 102. Implement bootstrap CLI command with lock file validation
-- [ ] 103. Write integration tests for bootstrap preparation
-- [ ] 104. **CHECKPOINT 10: Bootstrap Preparation Functional**
+- [x] 98. Implement SecureTempDir context manager with signal handling
+- [x] 99. Add _signal_handler() for SIGINT/SIGTERM cleanup
+- [x] 100. Create VacuumCommand for stale temp directory cleanup
+- [x] 101. Implement find_stale_directories() with age filtering
+- [x] 102. Add vacuum CLI command and automatic startup execution
+- [x] 103. Implement BootstrapCommand class
+- [x] 104. Add validate_runtime_dependencies() for jq/yq checking
+- [x] 105. Implement extract_all_scripts() with AOT extraction
+- [x] 106. Add context file writing for scripts with context_data
+- [x] 107. Generate runtime_manifest.json for stage-executor.sh
+- [x] 108. Implement bootstrap CLI command with lock file validation
+- [x] 109. Write integration tests for bootstrap preparation
+- [x] 110. **CHECKPOINT 10: Bootstrap Preparation Functional**
   - **Deliverable**: Bootstrap command with dependency validation and script extraction
   - **Verification Criteria**:
     - `ztc bootstrap` validates jq/yq presence before execution
@@ -216,16 +231,16 @@
 
 ## Phase 11: Eject Workflow Implementation
 
-- [ ] 105. Create EjectWorkflow class (ztc/workflows/eject.py)
-- [ ] 106. Implement validate_prerequisites() checking platform.yaml and artifacts
-- [ ] 107. Add create_directory_structure() for output organization
-- [ ] 108. Implement extract_adapter_scripts() with context files
-- [ ] 109. Add copy_pipeline_yaml() to output directory
-- [ ] 110. Implement generate_execution_guide() with README generation
-- [ ] 111. Add display_summary() with Rich table output
-- [ ] 112. Create eject CLI command with --env and --output flags
-- [ ] 113. Write integration tests for eject workflow
-- [ ] 114. **CHECKPOINT 11: Eject Command Functional**
+- [x] 111. Create EjectWorkflow class (ztc/workflows/eject.py)
+- [x] 112. Implement validate_prerequisites() checking platform.yaml and artifacts
+- [x] 113. Add create_directory_structure() for output organization
+- [x] 114. Implement extract_adapter_scripts() with context files
+- [x] 115. Add copy_pipeline_yaml() to output directory
+- [x] 116. Implement generate_execution_guide() with README generation
+- [x] 117. Add display_summary() with Rich table output
+- [x] 118. Create eject CLI command with --env and --output flags
+- [x] 119. Write integration tests for eject workflow
+- [x] 120. **CHECKPOINT 11: Eject Command Functional**
   - **Deliverable**: Eject command extracting scripts and pipeline for manual debugging
   - **Verification Criteria**:
     - `ztc eject` extracts all scripts to debug directory
@@ -238,15 +253,15 @@
 
 ## Phase 12: Lock File & Validation
 
-- [ ] 115. Implement LockFileGenerator class
-- [ ] 116. Add generate() method creating lock file structure
-- [ ] 117. Implement hash_directory() with streaming for large files
-- [ ] 118. Add generate_adapter_metadata() for adapter versioning
-- [ ] 119. Create validate CLI command
-- [ ] 120. Implement lock file validation against platform.yaml hash
-- [ ] 121. Add artifact hash validation
-- [ ] 122. Write unit tests for lock file generation and validation
-- [ ] 123. **CHECKPOINT 12: Lock File System Functional**
+- [x] 121. Implement LockFileGenerator class
+- [x] 122. Add generate() method creating lock file structure
+- [x] 123. Implement hash_directory() with streaming for large files
+- [x] 124. Add generate_adapter_metadata() for adapter versioning
+- [x] 125. Create validate CLI command
+- [x] 126. Implement lock file validation against platform.yaml hash
+- [x] 127. Add artifact hash validation
+- [x] 128. Write unit tests for lock file generation and validation
+- [x] 129. **CHECKPOINT 12: Lock File System Functional**
   - **Deliverable**: Lock file generation and validation preventing drift
   - **Verification Criteria**:
     - lock.json generated after successful render
@@ -259,15 +274,15 @@
 
 ## Phase 13: Error Handling & User Experience
 
-- [ ] 124. Implement ZTCError base exception class
-- [ ] 125. Add MissingCapabilityError with helpful messages
-- [ ] 126. Add LockFileValidationError with remediation hints
-- [ ] 127. Add RuntimeDependencyError for missing tools
-- [ ] 128. Implement error handling in CLI commands with Rich formatting
-- [ ] 129. Add progress indicators for long operations
-- [ ] 130. Implement version CLI command displaying adapter versions
-- [ ] 131. Write tests for error handling and user messaging
-- [ ] 132. **CHECKPOINT 13: Error Handling Complete**
+- [x] 130. Implement ZTCError base exception class
+- [x] 131. Add MissingCapabilityError with helpful messages
+- [x] 132. Add LockFileValidationError with remediation hints
+- [x] 133. Add RuntimeDependencyError for missing tools
+- [x] 134. Implement error handling in CLI commands with Rich formatting
+- [x] 135. Add progress indicators for long operations
+- [x] 136. Implement version CLI command displaying adapter versions
+- [x] 137. Write tests for error handling and user messaging
+- [x] 138. **CHECKPOINT 13: Error Handling Complete**
   - **Deliverable**: Comprehensive error handling with actionable user guidance
   - **Verification Criteria**:
     - All custom exceptions include help_text with remediation steps
@@ -279,15 +294,15 @@
 
 ## Phase 14: End-to-End Integration Testing
 
-- [ ] 133. Create end-to-end test with full workflow (init → render → validate → eject)
-- [ ] 134. Add test for resume functionality in init workflow
-- [ ] 135. Test partial render with --partial flag
-- [ ] 136. Validate debug mode preserves workspace on failure
-- [ ] 137. Test vacuum command removes only stale directories
-- [ ] 138. Validate version fallback behavior with network timeout
-- [ ] 139. Test capability validation across all adapters
-- [ ] 140. Validate context file usage in scripts
-- [ ] 141. **CHECKPOINT 14: End-to-End Integration Validated**
+- [x] 139. Create end-to-end test with full workflow (init → render → validate → eject)
+- [x] 140. Add test for resume functionality in init workflow
+- [x] 141. Test partial render with --partial flag
+- [x] 142. Validate debug mode preserves workspace on failure
+- [x] 143. Test vacuum command removes only stale directories
+- [x] 144. Validate version fallback behavior with network timeout
+- [x] 145. Test capability validation across all adapters
+- [x] 146. Validate context file usage in scripts
+- [x] 147. **CHECKPOINT 14: End-to-End Integration Validated**
   - **Deliverable**: Complete ZTC workflow tested from init to eject
   - **Verification Criteria**:
     - Full workflow (init → render → validate → eject) completes successfully
@@ -300,15 +315,15 @@
 
 ## Phase 15: Documentation & Packaging
 
-- [ ] 142. Create README.md with installation and usage instructions
-- [ ] 143. Document adapter development guide
-- [ ] 144. Add CLI command reference documentation
-- [ ] 145. Create troubleshooting guide
-- [ ] 146. Configure Poetry for binary distribution
-- [ ] 147. Test PyInstaller packaging for standalone binary
-- [ ] 148. Validate embedded resources in packaged binary
-- [ ] 149. Create release workflow documentation
-- [ ] 150. **CHECKPOINT 15: Project Complete & Documented**
+- [x] 148. Create README.md with installation and usage instructions
+- [x] 149. Document adapter development guide
+- [x] 150. Add CLI command reference documentation
+- [x] 151. Create troubleshooting guide
+- [x] 152. Configure Poetry for binary distribution
+- [x] 153. Test PyInstaller packaging for standalone binary
+- [x] 154. Validate embedded resources in packaged binary
+- [x] 155. Create release workflow documentation
+- [x] 156. **CHECKPOINT 15: Project Complete & Documented**
   - **Deliverable**: Fully documented and packaged ZTC CLI
   - **Verification Criteria**:
     - README provides clear installation and usage instructions

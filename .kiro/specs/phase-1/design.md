@@ -412,6 +412,192 @@ class PlatformAdapter:
         )
 ```
 
+## 2.4 Script Extraction Strategy from zerotouch-platform
+
+ZTC adapters extract and adapt core logic from existing `zerotouch-platform/scripts/bootstrap/` scripts. This section documents the mapping and conversion strategy.
+
+### 2.4.1 Source Location Mapping
+
+**Talos Adapter Scripts (Pre-work):**
+- **Source**: `zerotouch-platform/scripts/bootstrap/00-enable-rescue-mode.sh` + `helpers/hetzner-api.sh`
+- **Target**: `ztc/adapters/talos/scripts/pre_work/enable-rescue-mode.sh`
+- **Extraction**: Inline Hetzner API functions directly into script (no shared helpers)
+- **Rationale**: Rescue mode is prerequisite for Talos OS installation, not Hetzner post-work
+
+**Talos Adapter Scripts (Install):**
+- **Source**: `zerotouch-platform/scripts/bootstrap/install/02-embed-network-manifests.sh`
+- **Target**: `ztc/adapters/talos/scripts/install/embed-network-manifests.sh`
+- **Extraction**: Manifest embedding logic (Gateway API + Cilium)
+
+- **Source**: `zerotouch-platform/scripts/bootstrap/install/03-install-talos.sh`
+- **Target**: `ztc/adapters/talos/scripts/03-install-talos.sh`
+- **Extraction**: Talos image download and disk flashing logic
+
+- **Source**: `zerotouch-platform/scripts/bootstrap/install/04-bootstrap-talos.sh`
+- **Target**: `ztc/adapters/talos/scripts/04-bootstrap-talos.sh`
+- **Extraction**: Talos config application and etcd bootstrap
+
+- **Source**: `zerotouch-platform/scripts/bootstrap/install/05-add-worker-nodes.sh`
+- **Target**: `ztc/adapters/talos/scripts/05-add-worker-nodes.sh`
+- **Extraction**: Worker node addition logic
+
+- **Source**: `zerotouch-platform/scripts/bootstrap/validation/99-validate-cluster.sh`
+- **Target**: `ztc/adapters/talos/scripts/validate-cluster.sh`
+- **Extraction**: Node join verification
+
+**Stage Executor:**
+- **Source**: `zerotouch-platform/scripts/bootstrap/pipeline/stage-executor.sh`
+- **Target**: Reuse as-is with modifications for script-map and context-dir support
+- **Location**: Reference from user's zerotouch-platform checkout or embed in ZTC
+
+### 2.4.2 Adapter Independence - No Shared Helpers
+
+**Critical Design Principle**: Each adapter must be fully self-contained with no cross-adapter dependencies.
+
+**Hetzner API Logic Inlining:**
+- **Original**: `helpers/hetzner-api.sh` sourced by multiple scripts
+- **ZTC Approach**: Inline Hetzner API functions directly into each script that needs them
+- **Rationale**: Talos adapter needs Hetzner API for rescue mode, but must remain independent
+
+**Example - Talos Pre-work Script:**
+```bash
+#!/usr/bin/env bash
+# ztc/adapters/talos/scripts/pre_work/enable-rescue-mode.sh
+# Inlined Hetzner API functions (no external dependencies)
+
+set -euo pipefail
+
+# Read context
+SERVER_IP=$(jq -r '.server_ip' "$ZTC_CONTEXT_FILE")
+HETZNER_API_TOKEN=$(jq -r '.hetzner_api_token' "$ZTC_CONTEXT_FILE")
+
+# Inline Hetzner API function (copied from helpers/hetzner-api.sh)
+hetzner_api() {
+    local method="$1"
+    local endpoint="$2"
+    local data="$3"
+    
+    if [[ -n "$data" ]]; then
+        curl -s -X "$method" \
+            -H "Authorization: Bearer $HETZNER_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$data" \
+            "https://api.hetzner.cloud/v1$endpoint"
+    else
+        curl -s -X "$method" \
+            -H "Authorization: Bearer $HETZNER_API_TOKEN" \
+            "https://api.hetzner.cloud/v1$endpoint"
+    fi
+}
+
+# Inline get_server_id_by_ip (copied from helpers/hetzner-api.sh)
+get_server_id_by_ip() {
+    local ip="$1"
+    local servers=$(hetzner_api "GET" "/servers" "")
+    echo "$servers" | jq -r ".servers[] | select(.public_net.ipv4.ip == \"$ip\") | .id"
+}
+
+# Core rescue mode logic
+enable_rescue_mode() {
+    local server_id=$(get_server_id_by_ip "$SERVER_IP")
+    local response=$(hetzner_api "POST" "/servers/$server_id/actions/enable_rescue" '{"type":"linux64"}')
+    echo "$response" | jq -r '.root_password'
+}
+
+# Execute
+ROOT_PASSWORD=$(enable_rescue_mode)
+echo "$ROOT_PASSWORD"
+```
+
+**Hetzner Adapter (No Scripts Needed):**
+- Hetzner adapter provides CloudInfrastructureCapability via Python API calls
+- No bash scripts required - all logic in HetznerAdapter.render()
+- Validation scripts can query Hetzner API directly via adapter methods
+
+**Cilium Adapter Scripts:**
+- Self-contained wait/validation scripts with inline kubectl_retry functions
+- No external dependencies
+
+### 2.4.3 CLI Args to Context Data Conversion
+
+Existing scripts use CLI arguments. ZTC uses JSON context files for safety and structure.
+
+**Example: 03-install-talos.sh**
+
+**Original (CLI Args):**
+```bash
+./03-install-talos.sh --server-ip 46.62.218.181 --user root --password 'rescue123' --yes
+```
+
+**ZTC (Context Data):**
+```python
+ScriptReference(
+    package="ztc.adapters.talos.scripts",
+    resource=TalosScripts.INSTALL,
+    context_data={
+        "server_ip": "46.62.218.181",
+        "user": "root",
+        "password": "rescue123",
+        "confirm_destructive": True,
+        "disk_device": "/dev/sda",
+        "talos_version": "v1.11.5"
+    }
+)
+```
+
+**Script reads context:**
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Read context file
+if [[ -z "${ZTC_CONTEXT_FILE:-}" ]]; then
+    echo "ERROR: ZTC_CONTEXT_FILE not set" >&2
+    exit 1
+fi
+
+# Parse with jq
+SERVER_IP=$(jq -r '.server_ip' "$ZTC_CONTEXT_FILE")
+USER=$(jq -r '.user' "$ZTC_CONTEXT_FILE")
+PASSWORD=$(jq -r '.password' "$ZTC_CONTEXT_FILE")
+CONFIRM=$(jq -r '.confirm_destructive' "$ZTC_CONTEXT_FILE")
+DISK_DEVICE=$(jq -r '.disk_device // "/dev/sda"' "$ZTC_CONTEXT_FILE")
+TALOS_VERSION=$(jq -r '.talos_version // "v1.11.5"' "$ZTC_CONTEXT_FILE")
+```
+
+### 2.4.4 Extraction Guidelines
+
+When adapting scripts from zerotouch-platform:
+
+1. **Inline All Helpers**: Copy helper functions directly into scripts (no sourcing)
+2. **Remove Environment-Specific Logic**: Strip out `.env` loading, tenant config fetching
+3. **Remove Stage Caching**: ZTC's stage-executor.sh handles caching
+4. **Convert Args to Context**: Replace CLI arg parsing with jq-based context reading
+5. **Preserve Core Logic**: Keep the actual Hetzner API calls, Talos commands, validation checks
+6. **Remove Color Output**: ZTC's CLI handles user-facing output
+7. **Keep Error Handling**: Preserve exit codes and error messages for stage-executor.sh
+8. **Remove Confirmation Prompts**: ZTC's init workflow handles confirmations upfront
+9. **Ensure Independence**: Each adapter must work without cross-adapter dependencies
+
+### 2.4.5 Testing Extracted Scripts
+
+Each extracted script should be testable independently:
+
+```bash
+# Test with mock context file
+cat > /tmp/test-context.json <<EOF
+{
+  "server_ip": "46.62.218.181",
+  "user": "root",
+  "password": "test123",
+  "confirm_destructive": true
+}
+EOF
+
+export ZTC_CONTEXT_FILE=/tmp/test-context.json
+bash ztc/adapters/talos/scripts/03-install-talos.sh
+```
+
 ## 3. Adapter Contract
 
 ### 3.0 Capability Interface Contracts
@@ -659,12 +845,17 @@ class PlatformAdapter(ABC):
     
     @abstractmethod
     def pre_work_scripts(self) -> List[ScriptReference]:
-        """Return installation/setup scripts (cacheable stages)"""
+        """Return pre-work scripts (infrastructure preparation before bootstrap)"""
+        pass
+    
+    @abstractmethod
+    def bootstrap_scripts(self) -> List[ScriptReference]:
+        """Return bootstrap scripts (core adapter responsibility)"""
         pass
     
     @abstractmethod
     def post_work_scripts(self) -> List[ScriptReference]:
-        """Return readiness wait scripts (cacheable stages)"""
+        """Return post-work scripts (additional configuration after bootstrap)"""
         pass
     
     @abstractmethod
@@ -1386,9 +1577,10 @@ These scripts are for debugging only. Production bootstraps should use `ztc boot
     
     def _find_script_reference(self, adapter: PlatformAdapter, stage: PipelineStage) -> Optional[ScriptReference]:
         """Find ScriptReference for a given stage"""
-        # Check pre_work, post_work, and validation scripts
+        # Check pre_work, bootstrap, post_work, and validation scripts
         all_scripts = (
             adapter.pre_work_scripts() +
+            adapter.bootstrap_scripts() +
             adapter.post_work_scripts() +
             adapter.validation_scripts()
         )
@@ -1687,6 +1879,7 @@ class EjectWorkflow:
         # Get all script references from adapter lifecycle hooks
         all_scripts = (
             adapter.pre_work_scripts() +
+            adapter.bootstrap_scripts() +
             adapter.post_work_scripts() +
             adapter.validation_scripts()
         )
@@ -1751,6 +1944,7 @@ class EjectWorkflow:
             
             all_scripts = (
                 adapter.pre_work_scripts() +
+                adapter.bootstrap_scripts() +
                 adapter.post_work_scripts() +
                 adapter.validation_scripts()
             )
@@ -2241,6 +2435,7 @@ class BootstrapCommand:
         """Find ScriptReference for a given stage"""
         all_scripts = (
             adapter.pre_work_scripts() +
+            adapter.bootstrap_scripts() +
             adapter.post_work_scripts() +
             adapter.validation_scripts()
         )

@@ -1,0 +1,21 @@
+name: talos
+version: 1.0.0
+phase: foundation
+selection_group: os
+is_default: true
+group_prompt: "Select operating system"
+group_help: "Base OS for Kubernetes nodes"
+provides:
+  - capability: kubernetes-api
+    version: ">=1.28"
+requires:
+  - capability: cloud-infrastructure
+    version: v1.0
+  - capability: cni
+    version: v1.0
+supported_versions:
+  - v1.10.x
+  - v1.11.5
+default_version: v1.11.5
+config_schema: schema.json
+output_schema: output-schema.json

@@ -1,0 +1,103 @@
+version: v1alpha1
+debug: false
+persist: true
+machine:
+  type: controlplane
+  token: {{ cluster_name }}-token
+  ca:
+    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
+    key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+  certSANs:
+    - {{ node_ip }}
+    - {{ cluster_endpoint.split(':')[0] }}
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.28.0
+    extraArgs:
+      rotate-server-certificates: "true"
+  network:
+    hostname: {{ node_name }}
+    interfaces:
+      - interface: eth0
+        dhcp: true
+  install:
+    disk: {{ disk_device }}
+    image: ghcr.io/siderolabs/installer:v1.11.5
+    wipe: false
+  files: []
+  env: {}
+  time:
+    disabled: false
+    servers:
+      - time.cloudflare.com
+  sysctls:
+    net.core.somaxconn: "65535"
+    net.core.netdev_max_backlog: "4096"
+  systemDiskEncryption: {}
+  features:
+    rbac: true
+    stableHostname: true
+    apidCheckExtKeyUsage: true
+    diskQuotaSupport: true
+    kubePrism:
+      enabled: true
+      port: 7445
+    hostDNS:
+      enabled: true
+      forwardKubeDNSToHost: true
+cluster:
+  id: {{ cluster_name }}-id
+  secret: {{ cluster_name }}-secret
+  controlPlane:
+    endpoint: https://{{ cluster_endpoint }}
+  clusterName: {{ cluster_name }}
+  network:
+    cni:
+      name: none
+    dnsDomain: cluster.local
+    podSubnets:
+      - 10.244.0.0/16
+    serviceSubnets:
+      - 10.96.0.0/12
+  token: {{ cluster_name }}-token
+  ca:
+    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
+    key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:v1.28.0
+    certSANs:
+      - {{ cluster_endpoint.split(':')[0] }}
+    disablePodSecurityPolicy: true
+    admissionControl: []
+    auditPolicy:
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
+  controllerManager:
+    image: registry.k8s.io/kube-controller-manager:v1.28.0
+  proxy:
+    disabled: false
+    image: registry.k8s.io/kube-proxy:v1.28.0
+  scheduler:
+    image: registry.k8s.io/kube-scheduler:v1.28.0
+  discovery:
+    enabled: true
+    registries:
+      kubernetes:
+        disabled: false
+      service:
+        disabled: false
+  etcd:
+    ca:
+      crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
+      key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+  coreDNS:
+    disabled: false
+    image: registry.k8s.io/coredns/coredns:v1.11.1
+  allowSchedulingOnControlPlanes: true
+{% if cni_manifests %}
+  inlineManifests:
+    - name: cilium-cni
+      contents: |
+{{ cni_manifests | indent(8, first=True) }}
+{% endif %}

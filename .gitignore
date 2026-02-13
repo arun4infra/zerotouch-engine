@@ -1,1 +1,5 @@
 archived
+__pycache__
+dist
+build
+test-binary-workspace
