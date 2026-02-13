@@ -27,7 +27,7 @@ class ArgoCDScripts(str, Enum):
     VALIDATE_KSOPS = "validation/validate-ksops-integration.sh"
 
 
-class ArgoCDAdapter(PlatformAdapter):
+class ArgocdAdapter(PlatformAdapter):
     """ArgoCD GitOps platform adapter"""
     
     def load_metadata(self) -> Dict[str, Any]:
@@ -216,48 +216,77 @@ class ArgoCDAdapter(PlatformAdapter):
         
         # Render production or preview kustomization
         if config.mode == "production":
+            # Production mode: generate at argocd/install/
             kustomization_template = self.jinja_env.get_template("argocd/kustomization-production.yaml.j2")
-            manifests["install/kustomization.yaml"] = await kustomization_template.render_async(**template_ctx)
+            manifests["argocd/install/kustomization.yaml"] = await kustomization_template.render_async(**template_ctx)
+            
+            # Render patches at argocd/install/ level
+            cm_patch_template = self.jinja_env.get_template("argocd/argocd-cm-patch.yaml.j2")
+            manifests["argocd/install/argocd-cm-patch.yaml"] = await cm_patch_template.render_async(**template_ctx)
+            
+            app_controller_netpol_template = self.jinja_env.get_template("argocd/argocd-application-controller-netpol-patch.yaml.j2")
+            manifests["argocd/install/argocd-application-controller-netpol-patch.yaml"] = await app_controller_netpol_template.render_async(**template_ctx)
+            
+            repo_server_netpol_template = self.jinja_env.get_template("argocd/argocd-repo-server-netpol-patch.yaml.j2")
+            manifests["argocd/install/argocd-repo-server-netpol-patch.yaml"] = await repo_server_netpol_template.render_async(**template_ctx)
+            
+            ksops_init_template = self.jinja_env.get_template("argocd/repo-server-ksops-init.yaml.j2")
+            manifests["argocd/install/repo-server-ksops-init.yaml"] = await ksops_init_template.render_async(**template_ctx)
         else:
+            # Preview mode: generate at argocd/install/preview/
             kustomization_template = self.jinja_env.get_template("argocd/kustomization-preview.yaml.j2")
-            manifests["install/preview/kustomization.yaml"] = await kustomization_template.render_async(**template_ctx)
+            manifests["argocd/install/preview/kustomization.yaml"] = await kustomization_template.render_async(**template_ctx)
+            
+            # Render patches at argocd/install/preview/ level (duplicates for Kustomize path resolution)
+            cm_patch_template = self.jinja_env.get_template("argocd/argocd-cm-patch.yaml.j2")
+            manifests["argocd/install/preview/argocd-cm-patch.yaml"] = await cm_patch_template.render_async(**template_ctx)
+            
+            app_controller_netpol_template = self.jinja_env.get_template("argocd/argocd-application-controller-netpol-patch.yaml.j2")
+            manifests["argocd/install/preview/argocd-application-controller-netpol-patch.yaml"] = await app_controller_netpol_template.render_async(**template_ctx)
+            
+            repo_server_netpol_template = self.jinja_env.get_template("argocd/argocd-repo-server-netpol-patch.yaml.j2")
+            manifests["argocd/install/preview/argocd-repo-server-netpol-patch.yaml"] = await repo_server_netpol_template.render_async(**template_ctx)
+            
+            ksops_init_template = self.jinja_env.get_template("argocd/repo-server-ksops-init.yaml.j2")
+            manifests["argocd/install/preview/repo-server-ksops-init.yaml"] = await ksops_init_template.render_async(**template_ctx)
+            
+            # Preview-specific: repo mount patch
+            repo_mount_template = self.jinja_env.get_template("argocd/repo-mount-patch.yaml.j2")
+            manifests["argocd/install/preview/repo-mount-patch.yaml"] = await repo_mount_template.render_async(**template_ctx)
         
-        # Render ConfigMap patch
-        cm_patch_template = self.jinja_env.get_template("argocd/argocd-cm-patch.yaml.j2")
-        manifests["install/argocd-cm-patch.yaml"] = await cm_patch_template.render_async(**template_ctx)
-        
-        # Render NetworkPolicy patches
-        app_controller_netpol_template = self.jinja_env.get_template("argocd/argocd-application-controller-netpol-patch.yaml.j2")
-        manifests["install/argocd-application-controller-netpol-patch.yaml"] = await app_controller_netpol_template.render_async(**template_ctx)
-        
-        repo_server_netpol_template = self.jinja_env.get_template("argocd/argocd-repo-server-netpol-patch.yaml.j2")
-        manifests["install/argocd-repo-server-netpol-patch.yaml"] = await repo_server_netpol_template.render_async(**template_ctx)
-        
-        # Render KSOPS init container patch
-        ksops_init_template = self.jinja_env.get_template("argocd/repo-server-ksops-init.yaml.j2")
-        manifests["install/repo-server-ksops-init.yaml"] = await ksops_init_template.render_async(**template_ctx)
-        
-        # Render bootstrap configuration
+        # Render bootstrap configuration (shared)
         bootstrap_config_template = self.jinja_env.get_template("argocd/bootstrap-config.yaml.j2")
-        manifests["bootstrap-files/config.yaml"] = await bootstrap_config_template.render_async(**template_ctx)
+        manifests["argocd/bootstrap-files/config.yaml"] = await bootstrap_config_template.render_async(**template_ctx)
         
-        # Render overlay kustomizations
+        # Render admin patch (shared)
+        admin_patch_template = self.jinja_env.get_template("argocd/argocd-admin-patch.yaml.j2")
+        manifests["argocd/bootstrap-files/argocd-admin-patch.yaml"] = await admin_patch_template.render_async(**template_ctx)
+        
+        # Render overlay kustomizations (shared)
         overlay_main_template = self.jinja_env.get_template("argocd/overlay-main-kustomization.yaml.j2")
-        manifests["overlays/main/kustomization.yaml"] = await overlay_main_template.render_async(**template_ctx)
+        manifests["argocd/overlays/main/kustomization.yaml"] = await overlay_main_template.render_async(**template_ctx)
         
         overlay_preview_template = self.jinja_env.get_template("argocd/overlay-preview-kustomization.yaml.j2")
-        manifests["overlays/preview/kustomization.yaml"] = await overlay_preview_template.render_async(**template_ctx)
+        manifests["argocd/overlays/preview/kustomization.yaml"] = await overlay_preview_template.render_async(**template_ctx)
         
-        # GitOps platform capability data
-        capability_data = {
-            "gitops-platform": {
-                "argocd_endpoint": f"https://argocd.{config.namespace}.svc.cluster.local",
-                "admin_username": "admin",
-                "admin_password": config.admin_password.get_secret_value(),
-                "namespace": config.namespace,
-                "version": config.version
-            }
-        }
+        # Render root Application manifests (shared)
+        overlay_main_root_template = self.jinja_env.get_template("argocd/overlay-main-root.yaml.j2")
+        manifests["argocd/overlays/main/root.yaml"] = await overlay_main_root_template.render_async(**template_ctx)
+        
+        overlay_preview_root_template = self.jinja_env.get_template("argocd/overlay-preview-root.yaml.j2")
+        manifests["argocd/overlays/preview/root.yaml"] = await overlay_preview_root_template.render_async(**template_ctx)
+        
+        # Create empty core/ directories (placeholders for other adapters)
+        manifests["argocd/overlays/main/core/.gitkeep"] = ""
+        manifests["argocd/overlays/preview/core/.gitkeep"] = ""
+        
+        # Create empty environment directories (dev, staging, production)
+        manifests["argocd/overlays/main/dev/.gitkeep"] = ""
+        manifests["argocd/overlays/main/staging/.gitkeep"] = ""
+        manifests["argocd/overlays/main/production/.gitkeep"] = ""
+        
+        # GitOps platform capability data (empty - gitops-platform not a registered capability)
+        capability_data = {}
         
         return AdapterOutput(
             manifests=manifests,

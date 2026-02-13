@@ -91,11 +91,12 @@ class PlatformEngine:
             enable_async=True   # Support async rendering
         )
     
-    def resolve_adapters(self, partial: Optional[List[str]] = None) -> List[PlatformAdapter]:
+    def resolve_adapters(self, partial: Optional[List[str]] = None, validate_dependencies: bool = False) -> List[PlatformAdapter]:
         """Resolve adapter dependencies via phase + capability matching
         
         Args:
             partial: Optional list of adapter names to render (for partial renders)
+            validate_dependencies: If True, validates all required capabilities are provided
             
         Returns:
             Ordered list of adapters respecting dependencies and phases
@@ -125,7 +126,7 @@ class PlatformEngine:
         
         # 2. Resolve dependencies using topological sort
         resolver = DependencyResolver()
-        resolved_adapters = resolver.resolve(adapters)
+        resolved_adapters = resolver.resolve(adapters, validate_dependencies=validate_dependencies)
         
         # Topological sort already respects dependencies and phases
         return resolved_adapters

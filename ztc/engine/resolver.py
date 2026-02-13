@@ -17,17 +17,18 @@ class CircularDependencyError(Exception):
 class DependencyResolver:
     """Resolves adapter dependencies using topological sort"""
     
-    def resolve(self, adapters: List[PlatformAdapter]) -> List[PlatformAdapter]:
+    def resolve(self, adapters: List[PlatformAdapter], validate_dependencies: bool = True) -> List[PlatformAdapter]:
         """Topological sort with phase-based ordering
         
         Args:
             adapters: List of adapters to resolve
+            validate_dependencies: If True, validates all required capabilities are provided
             
         Returns:
             Ordered list of adapters respecting dependencies
             
         Raises:
-            MissingCapabilityError: If required capability not provided
+            MissingCapabilityError: If required capability not provided (only when validate_dependencies=True)
             CircularDependencyError: If circular dependency detected
         """
         # Build capability registry
@@ -56,10 +57,13 @@ class DependencyResolver:
                 req_cap = requirement["capability"] if isinstance(requirement, dict) else requirement
                 
                 if req_cap not in capability_registry:
-                    raise MissingCapabilityError(
-                        f"Adapter '{adapter.name}' requires capability '{req_cap}' "
-                        f"but no adapter provides it"
-                    )
+                    if validate_dependencies:
+                        raise MissingCapabilityError(
+                            f"Adapter '{adapter.name}' requires capability '{req_cap}' "
+                            f"but no adapter provides it"
+                        )
+                    # Skip dependency if not validating
+                    continue
                 
                 provider = capability_registry[req_cap]
                 graph[provider].append(adapter)

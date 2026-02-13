@@ -1,0 +1,27 @@
+{
+  "platform_hash": "2ed4fba8c3e8b6f12fb0e294373f855443fafa9eabf953554397777320b629c8",
+  "artifacts_hash": "da7502dbf6a6033d4d932a885840b3d9e934dbd6dffcd1d22fc0f86c5390bb55",
+  "ztc_version": "1.0.0",
+  "adapters": {
+    "hetzner": {
+      "version": "1.0.0",
+      "phase": "foundation"
+    },
+    "cilium": {
+      "version": "1.0.0",
+      "phase": "networking"
+    },
+    "talos": {
+      "version": "1.0.0",
+      "phase": "foundation"
+    },
+    "ksops": {
+      "version": "1.0.0",
+      "phase": "secrets"
+    },
+    "argocd": {
+      "version": "1.0.0",
+      "phase": "gitops"
+    }
+  }
+}
