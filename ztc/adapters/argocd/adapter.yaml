@@ -1,0 +1,22 @@
+name: argocd
+version: 1.0.0
+phase: gitops
+selection_group: gitops_platform
+is_default: true
+group_prompt: "Select GitOps platform"
+group_help: "Declarative GitOps continuous delivery tool for Kubernetes"
+provides:
+  - capability: gitops-platform
+    version: v1.0
+requires:
+  - capability: kubernetes-api
+    version: v1.0
+  - capability: secrets-management
+    version: v1.0
+supported_versions:
+  - v3.2.0
+  - v3.1.0
+  - v3.0.0
+default_version: v3.2.0
+config_schema: schema.json
+output_schema: output-schema.json

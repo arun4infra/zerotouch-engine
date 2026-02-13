@@ -1,0 +1,165 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- /repo/bootstrap/argocd/base
+- gateway-api-crds.yaml
+
+# URL patching is handled by 01-patch-urls.sh script (applied before ArgoCD sync)
+
+patches:
+# 1. Specific Patch: Exclude Cilium and network policies from Foundation Config
+# This prevents ArgoCD from deploying Cilium and CiliumNetworkPolicy in preview
+- target:
+    kind: Application
+    name: foundation-config
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: foundation-config
+    spec:
+      source:
+        directory:
+          exclude: '{cilium.yaml,network-policies/*}'
+
+# 2. Remove Control Plane Tolerations (Kind clusters don't have control-plane taints)
+- target:
+    kind: Application
+    name: crossplane-operator
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: crossplane-operator
+    spec:
+      source:
+        helm:
+          values: |
+            # Allow Crossplane to run without control plane tolerations
+            tolerations: []
+            args:
+              - --enable-composition-revisions
+
+- target:
+    kind: Application
+    name: keda
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: keda
+    spec:
+      source:
+        helm:
+          values: |
+            operator:
+              logLevel: info
+            # Remove control plane tolerations for Kind
+            tolerations: []
+
+# 3. Optimize Resources for Preview Mode
+- target:
+    kind: Application
+    name: nats
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: nats
+    spec:
+      source:
+        helm:
+          values: |
+            container:
+              resources:
+                limits:
+                  cpu: 250m
+                  memory: 512Mi
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+            config:
+              jetstream:
+                fileStore:
+                  enabled: false
+                memoryStore:
+                  enabled: true
+
+- target:
+    kind: Application
+    name: kagent
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: kagent
+    spec:
+      source:
+        helm:
+          values: |
+            # Schedule kagent agents on worker nodes with intelligence workloads
+            agents:
+              nodeSelector: {}
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 250m
+                  memory: 512Mi
+            # Keep controller on control plane (lightweight)
+            controller:
+              nodeSelector: {}
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 100m
+                  memory: 256Mi
+            # Disable kmcp controller - platform uses RemoteMCPServer (v1alpha2) instead of MCPServer (v1alpha1)
+            kmcp:
+              enabled: false
+
+# 4. Fix ArgoCD-Crossplane Sync Fight for Databases
+- target:
+    kind: Application
+    name: databases
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: databases
+    spec:
+      ignoreDifferences:
+      - group: apiextensions.k8s.io
+        kind: CustomResourceDefinition
+        jqPathExpressions:
+        - .status
+        - .metadata.annotations["controller-gen.kubebuilder.io/version"]
+      - group: apiextensions.crossplane.io
+        kind: Composition
+        jqPathExpressions:
+        - .status
+
+# 5. Disable Gateway API support in cert-manager for preview mode
+- target:
+    kind: Application
+    name: cert-manager
+  patch: |-
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: cert-manager
+    spec:
+      source:
+        helm:
+          values: |
+            installCRDs: true
+            config:
+              apiVersion: controller.config.cert-manager.io/v1alpha1
+              kind: ControllerConfiguration
+              enableGatewayAPI: false
+              featureGates:
+                ExperimentalGatewayAPISupport: false
