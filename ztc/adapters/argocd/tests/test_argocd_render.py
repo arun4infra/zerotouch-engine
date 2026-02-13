@@ -51,7 +51,7 @@ class TestArgoCDAdapterRenderProduction:
         # Verify empty environment directories exist
         assert (generated_dir / "overlays/main/dev/.gitkeep").exists()
         assert (generated_dir / "overlays/main/staging/.gitkeep").exists()
-        assert (generated_dir / "overlays/main/production/.gitkeep").exists()
+        assert (generated_dir / "overlays/main/prod/.gitkeep").exists()
         
         # Verify no install/preview/ directory in production mode
         assert not (generated_dir / "install/preview").exists()

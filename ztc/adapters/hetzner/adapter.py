@@ -110,32 +110,35 @@ class HetznerAdapter(PlatformAdapter):
             rescue_mode_enabled=config.rescue_mode_confirm
         )
         
-        # Generate secrets structure matching reference
+        # Generate secrets structure for all environments (dev, staging, prod)
         manifests = {}
-        secrets_path = "argocd/overlays/main/dev/secrets"
+        environments = ["dev", "staging", "prod"]
         
-        # HCloud Secret
-        manifests[f"{secrets_path}/hcloud.secret.yaml"] = self._render_secret(
-            name="hcloud",
-            namespace="kube-system",
-            string_data={"token": config.api_token}
-        )
-        
-        # External DNS Hetzner Secret
-        manifests[f"{secrets_path}/external-dns-hetzner.secret.yaml"] = self._render_secret(
-            name="external-dns-hetzner",
-            namespace="kube-system",
-            string_data={"HETZNER_DNS_TOKEN": config.api_token}
-        )
-        
-        # KSOPS Generator
-        manifests[f"{secrets_path}/ksops-generator.yaml"] = self._render_ksops_generator([
-            "./hcloud.secret.yaml",
-            "./external-dns-hetzner.secret.yaml"
-        ])
-        
-        # Kustomization
-        manifests[f"{secrets_path}/kustomization.yaml"] = """apiVersion: kustomize.config.k8s.io/v1beta1
+        for env in environments:
+            secrets_path = f"argocd/overlays/main/{env}/secrets"
+            
+            # HCloud Secret
+            manifests[f"{secrets_path}/hcloud.secret.yaml"] = self._render_secret(
+                name="hcloud",
+                namespace="kube-system",
+                string_data={"token": config.api_token}
+            )
+            
+            # External DNS Hetzner Secret
+            manifests[f"{secrets_path}/external-dns-hetzner.secret.yaml"] = self._render_secret(
+                name="external-dns-hetzner",
+                namespace="kube-system",
+                string_data={"HETZNER_DNS_TOKEN": config.api_token}
+            )
+            
+            # KSOPS Generator
+            manifests[f"{secrets_path}/ksops-generator.yaml"] = self._render_ksops_generator([
+                "./hcloud.secret.yaml",
+                "./external-dns-hetzner.secret.yaml"
+            ])
+            
+            # Kustomization
+            manifests[f"{secrets_path}/kustomization.yaml"] = """apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 generators:
 - ksops-generator.yaml

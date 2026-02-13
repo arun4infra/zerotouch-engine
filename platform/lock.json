@@ -1,6 +1,6 @@
 {
   "platform_hash": "2ed4fba8c3e8b6f12fb0e294373f855443fafa9eabf953554397777320b629c8",
-  "artifacts_hash": "da7502dbf6a6033d4d932a885840b3d9e934dbd6dffcd1d22fc0f86c5390bb55",
+  "artifacts_hash": "a0ed3ebc3bb316cb7913306b4792fe94f801044e0cbd1d7f634eeb29eb0f985e",
   "ztc_version": "1.0.0",
   "adapters": {
     "hetzner": {

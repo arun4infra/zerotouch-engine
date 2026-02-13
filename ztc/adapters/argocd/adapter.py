@@ -280,10 +280,10 @@ class ArgocdAdapter(PlatformAdapter):
         manifests["argocd/overlays/main/core/.gitkeep"] = ""
         manifests["argocd/overlays/preview/core/.gitkeep"] = ""
         
-        # Create empty environment directories (dev, staging, production)
+        # Create empty environment directories (dev, staging, prod)
         manifests["argocd/overlays/main/dev/.gitkeep"] = ""
         manifests["argocd/overlays/main/staging/.gitkeep"] = ""
-        manifests["argocd/overlays/main/production/.gitkeep"] = ""
+        manifests["argocd/overlays/main/prod/.gitkeep"] = ""
         
         # GitOps platform capability data (empty - gitops-platform not a registered capability)
         capability_data = {}
