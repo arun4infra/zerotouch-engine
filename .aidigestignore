@@ -6,3 +6,4 @@ tests
 poetry.lock
 test-binary-workspace
 .kiro
+tests

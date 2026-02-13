@@ -159,3 +159,20 @@ class RuntimeDependencyError(ZTCError):
         super().__init__(message, help_text)
         self.tool_name = tool_name
         self.required_for = required_for
+
+
+class PreFlightError(ZTCError):
+    """Raised when pre-flight checks fail before adapter execution
+    
+    This error occurs when adapter health checks detect issues with
+    external dependencies like S3 connectivity, API access, etc.
+    """
+    
+    def __init__(self, message: str, hint: Optional[str] = None):
+        """Initialize pre-flight error
+        
+        Args:
+            message: Error description
+            hint: Optional remediation hint
+        """
+        super().__init__(message, help_text=hint)

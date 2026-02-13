@@ -40,6 +40,7 @@ class ScriptReference:
     description: str
     timeout: int = 300                # seconds
     context_data: Optional[Dict[str, Any]] = None  # Data passed via context.json (replaces args)
+    secret_env_vars: Optional[Dict[str, str]] = None  # Secrets passed via environment variables
     args: Optional[List[str]] = None  # Deprecated: use context_data instead
     uri: str = field(init=False)      # Generated URI for backward compatibility
     
@@ -94,6 +95,43 @@ class AdapterOutput:
     env_vars: Dict[str, str]       # Environment variables
     capabilities: Dict[str, Any]   # Capability-based data (e.g., {"cni": CNIArtifacts})
     data: Dict[str, Any]           # Legacy: Output data for downstream adapters (deprecated)
+
+
+class CLIExtension:
+    """Optional mixin for adapters that provide CLI commands"""
+    
+    def get_cli_category(self) -> str:
+        """Return CLI category name for this adapter
+        
+        Derives category from selection_group in adapter.yaml:
+        - secrets_management -> "secret"
+        - network_plugin -> "network"
+        - storage_provider -> "storage"
+        
+        Returns:
+            Category name for CLI namespace
+        """
+        metadata = self.load_metadata()
+        selection_group = metadata.get("selection_group", "")
+        
+        # Map selection_group to CLI category
+        category_map = {
+            "secrets_management": "secret",
+            "network_plugin": "network",
+            "storage_provider": "storage",
+            "os_provider": "os",
+            "cloud_provider": "cloud"
+        }
+        
+        return category_map.get(selection_group, selection_group)
+    
+    def get_cli_app(self):
+        """Return Typer instance with adapter-specific commands
+        
+        Returns:
+            typer.Typer instance with registered commands, or None if no CLI commands
+        """
+        return None
 
 
 class PlatformAdapter(ABC):

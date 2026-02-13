@@ -242,7 +242,10 @@ class BootstrapCommand:
             )
         
         # Validate platform.yaml hash
-        platform_yaml = self.repo_root / "platform.yaml"
+        platform_yaml = self.repo_root / "platform" / "platform.yaml"
+        if not platform_yaml.exists():
+            platform_yaml = self.repo_root / "platform.yaml"  # Fallback
+        
         if platform_yaml.exists():
             current_hash = self._hash_file(platform_yaml)
             
@@ -260,7 +263,10 @@ class BootstrapCommand:
         }
         
         # Load platform.yaml if exists
-        platform_yaml = self.repo_root / "platform.yaml"
+        platform_yaml = self.repo_root / "platform" / "platform.yaml"
+        if not platform_yaml.exists():
+            platform_yaml = self.repo_root / "platform.yaml"  # Fallback
+        
         if platform_yaml.exists():
             platform_data = yaml.safe_load(platform_yaml.read_text())
             

@@ -24,6 +24,79 @@ app = typer.Typer(
 console = Console()
 
 
+def register_adapter_subcommands():
+    """Discover and register adapter CLI extensions
+    
+    Registers commands under category names, not adapter names.
+    Only one adapter per category can provide CLI commands.
+    """
+    from ztc.adapters.base import CLIExtension
+    from ztc.registry.adapter_registry import AdapterRegistry
+    from pathlib import Path
+    import yaml
+    
+    # Check if platform.yaml exists
+    platform_yaml = Path("platform/platform.yaml")
+    if not platform_yaml.exists():
+        platform_yaml = Path("platform.yaml")  # Fallback
+    
+    if not platform_yaml.exists():
+        return  # No platform config, skip CLI registration
+    
+    try:
+        # Load platform configuration
+        with open(platform_yaml) as f:
+            platform_config = yaml.safe_load(f)
+        
+        selected_adapters = platform_config.get("adapters", {})
+        if not selected_adapters:
+            return
+        
+        # Initialize registry
+        registry = AdapterRegistry()
+        
+        # Track registered categories to prevent conflicts
+        registered_categories = {}
+        
+        for adapter_name, adapter_config in selected_adapters.items():
+            try:
+                # Get adapter class
+                adapter_instance = registry.get_adapter(adapter_name, adapter_config)
+                
+                # Check if adapter implements CLI extension
+                if isinstance(adapter_instance, CLIExtension):
+                    # Get category name (not adapter name)
+                    category = adapter_instance.get_cli_category()
+                    cli_app = adapter_instance.get_cli_app()
+                    
+                    if cli_app:
+                        # Prevent multiple adapters from same category
+                        if category in registered_categories:
+                            console.print(
+                                f"[yellow]Warning: Category '{category}' CLI already registered by "
+                                f"'{registered_categories[category]}'. Skipping '{adapter_name}'.[/yellow]"
+                            )
+                            continue
+                        
+                        # Register under category name
+                        app.add_typer(
+                            cli_app,
+                            name=category,
+                            help=f"{category.title()} management tools"
+                        )
+                        
+                        registered_categories[category] = adapter_name
+            
+            except Exception as e:
+                # Skip adapters that fail to load
+                console.print(f"[dim]Could not register CLI for '{adapter_name}': {e}[/dim]")
+                continue
+    
+    except Exception as e:
+        # Silently skip if platform.yaml is invalid
+        pass
+
+
 def handle_ztc_error(error: ZTCError, exit_code: int = 1):
     """Handle ZTC errors with Rich formatting
     
@@ -115,10 +188,13 @@ def render(
     if partial:
         console.print(f"[yellow]Partial render: {', '.join(partial)}[/yellow]")
     
-    # Check if platform.yaml exists
-    platform_yaml = Path("platform.yaml")
+    # Check if platform.yaml exists (try new location first)
+    platform_yaml = Path("platform/platform.yaml")
     if not platform_yaml.exists():
-        console.print("[red]Error: platform.yaml not found[/red]")
+        platform_yaml = Path("platform.yaml")  # Fallback to old location
+    
+    if not platform_yaml.exists():
+        console.print("[red]Error: platform/platform.yaml not found[/red]")
         console.print("Run 'ztc init' to create platform configuration")
         raise typer.Exit(1)
     
@@ -305,4 +381,8 @@ def version():
 if __name__ == "__main__":
     # Run automatic vacuum on startup
     _run_automatic_vacuum()
+    
+    # Register adapter CLI subcommands
+    register_adapter_subcommands()
+    
     app()

@@ -16,7 +16,10 @@ class ValidateCommand:
     
     def __init__(self):
         self.repo_root = Path.cwd()
-        self.platform_yaml = self.repo_root / "platform.yaml"
+        platform_yaml = self.repo_root / "platform" / "platform.yaml"
+        if not platform_yaml.exists():
+            platform_yaml = self.repo_root / "platform.yaml"  # Fallback
+        self.platform_yaml = platform_yaml
         self.lock_file = self.repo_root / "platform" / "lock.json"
         self.artifacts_dir = self.repo_root / "platform" / "generated"
     

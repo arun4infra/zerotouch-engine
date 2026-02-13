@@ -42,9 +42,14 @@ class InitWorkflow:
         self.version_registry.start_background_fetch()
         
         # Step 1: Load existing config if resuming
-        if resume and Path("platform.yaml").exists():
-            self.config = self.load_existing_config()
-            self.console.print("[green]✓[/green] Loaded existing platform.yaml")
+        if resume:
+            platform_yaml = Path("platform/platform.yaml")
+            if not platform_yaml.exists():
+                platform_yaml = Path("platform.yaml")  # Fallback
+            
+            if platform_yaml.exists():
+                self.config = self.load_existing_config()
+                self.console.print(f"[green]✓[/green] Loaded existing {platform_yaml}")
         
         # Step 2-7: Process selection groups (data-driven, no hardcoded logic)
         for group in self.selection_groups:
@@ -72,7 +77,11 @@ class InitWorkflow:
         Returns:
             Configuration dictionary from platform.yaml
         """
-        with open("platform.yaml", "r") as f:
+        platform_yaml = Path("platform/platform.yaml")
+        if not platform_yaml.exists():
+            platform_yaml = Path("platform.yaml")  # Fallback to old location
+        
+        with open(platform_yaml, "r") as f:
             return yaml.safe_load(f)
     
     def handle_group_selection(self, group: SelectionGroup) -> str:
@@ -193,10 +202,13 @@ class InitWorkflow:
     
     def write_platform_yaml(self):
         """Generate and write platform.yaml configuration file"""
-        with open("platform.yaml", "w") as f:
+        platform_dir = Path("platform")
+        platform_dir.mkdir(exist_ok=True)
+        
+        with open(platform_dir / "platform.yaml", "w") as f:
             yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
         
-        self.console.print("[green]✓[/green] Generated platform.yaml")
+        self.console.print("[green]✓[/green] Generated platform/platform.yaml")
     
     def display_summary(self):
         """Display configuration summary table"""

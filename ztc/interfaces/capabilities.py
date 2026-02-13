@@ -32,12 +32,26 @@ class GatewayAPICapability(BaseModel):
     crds_embedded: bool
 
 
+class SecretsManagementCapability(BaseModel):
+    """Strict contract for 'secrets-management' capability providers (KSOPS, Sealed Secrets, etc.)"""
+    provider: str = Field(..., description="Secrets management provider name")
+    s3_bucket: str = Field(..., description="S3 bucket for key backups")
+    sops_config_path: str = Field(..., description="Path to .sops.yaml configuration")
+    age_public_key: str = Field(..., description="Age public key for encryption")
+    
+    @property
+    def encryption_env(self) -> Dict[str, str]:
+        """Helper for downstream SOPS commands"""
+        return {"SOPS_AGE_RECIPIENTS": self.age_public_key}
+
+
 class Capability(StrEnum):
     """Type-safe capability identifiers (prevents typos like 'CNI' vs 'cni')"""
     CNI = "cni"
     KUBERNETES_API = "kubernetes-api"
     CLOUD_INFRASTRUCTURE = "cloud-infrastructure"
     GATEWAY_API = "gateway-api"
+    SECRETS_MANAGEMENT = "secrets-management"
 
 
 # Bind capability enums to Pydantic models
@@ -46,4 +60,5 @@ CAPABILITY_CONTRACTS: Dict[Capability, Type[BaseModel]] = {
     Capability.KUBERNETES_API: KubernetesAPICapability,
     Capability.CLOUD_INFRASTRUCTURE: CloudInfrastructureCapability,
     Capability.GATEWAY_API: GatewayAPICapability,
+    Capability.SECRETS_MANAGEMENT: SecretsManagementCapability,
 }

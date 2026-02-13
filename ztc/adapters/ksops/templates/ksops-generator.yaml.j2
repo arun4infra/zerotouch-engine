@@ -1,0 +1,12 @@
+apiVersion: viaduct.ai/v1
+kind: ksops
+metadata:
+  name: secrets-generator
+  annotations:
+    config.kubernetes.io/function: |
+      exec:
+        path: ksops
+files:
+{% for file in secret_files %}
+  - ./{{ file }}
+{% endfor %}

@@ -27,6 +27,20 @@ class AdapterRegistry:
         self._adapter_classes[adapter_name] = adapter_class
         self._metadata[adapter_name] = metadata
     
+    def get_adapter_class(self, name: str) -> type:
+        """Get adapter class by name
+        
+        Args:
+            name: Adapter name
+            
+        Returns:
+            Adapter class (not instantiated)
+        """
+        if name not in self._adapter_classes:
+            raise KeyError(f"Adapter '{name}' not found in registry")
+        
+        return self._adapter_classes[name]
+    
     def get_adapter(self, name: str, config: Dict = None):
         """Get adapter instance by name
         
@@ -67,11 +81,19 @@ class AdapterRegistry:
             adapter_module_path = f"ztc.adapters.{adapter_dir.name}.adapter"
             try:
                 module = importlib.import_module(adapter_module_path)
-                # Look for adapter class (convention: {Name}Adapter)
-                adapter_class_name = f"{adapter_dir.name.capitalize()}Adapter"
-                if hasattr(module, adapter_class_name):
-                    adapter_class = getattr(module, adapter_class_name)
-                    self.register(adapter_class)
+                # Look for adapter class (convention: {Name}Adapter or uppercase first letter)
+                # Try multiple naming conventions
+                possible_names = [
+                    f"{adapter_dir.name.capitalize()}Adapter",  # talos -> TalosAdapter
+                    f"{adapter_dir.name.upper()}Adapter",       # ksops -> KSOPSAdapter
+                    f"{adapter_dir.name.title()}Adapter"        # hetzner -> HetznerAdapter
+                ]
+                
+                for adapter_class_name in possible_names:
+                    if hasattr(module, adapter_class_name):
+                        adapter_class = getattr(module, adapter_class_name)
+                        self.register(adapter_class)
+                        break
             except (ImportError, AttributeError):
                 # Skip if adapter module doesn't exist or doesn't follow convention
                 pass
