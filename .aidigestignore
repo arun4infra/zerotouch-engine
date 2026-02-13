@@ -1,0 +1,7 @@
+.pytest_cache
+build
+dist 
+temp 
+tests 
+poetry.lock
+test-binary-workspace

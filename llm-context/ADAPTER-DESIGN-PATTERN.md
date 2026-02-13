@@ -8,7 +8,9 @@ ZTC (ZeroTouch CLI) implements a capability-based adapter pattern for multi-clou
 
 ### 1. Adapter Independence
 - **No Shared Dependencies**: Each adapter must be fully self-contained with no cross-adapter code dependencies
-- **Inline Helpers**: Helper functions are inlined directly into scripts rather than sourced from shared locations
+- **Adapter-Scoped Sharing**: Shared logic within an adapter lives in `scripts/shared/` folder
+- **Build-Time Injection**: Helper functions injected during script extraction via `# INCLUDE:` markers
+- **Runtime Independence**: Extracted scripts remain self-contained with no external file dependencies
 - **Isolated Execution**: Adapters can be developed, tested, and deployed independently
 
 ### 2. Capability-Based Architecture
@@ -211,11 +213,20 @@ adapter_name/
 ├── config.py               # Pydantic configuration model
 ├── templates/              # Jinja2 templates (can be empty)
 └── scripts/
+    ├── shared/             # Adapter-scoped shared helpers (optional)
+    │   ├── s3-helpers.sh   # Example: S3 operations
+    │   └── env-helpers.sh  # Example: Environment utilities
     ├── pre_work/           # Scripts before adapter bootstrap (can be empty)
     ├── bootstrap/          # Core adapter responsibility scripts (can be empty)
     ├── post_work/          # Scripts after adapter bootstrap (can be empty)
     └── validation/         # Validation scripts (can be empty)
 ```
+
+**Benefits:**
+- **Single Source of Truth**: Bug fixes in `shared/s3-helpers.sh` propagate to all scripts
+- **Maintainability**: No copy-paste across 8+ scripts within adapter
+- **Runtime Independence**: Extracted scripts remain self-contained
+- **Adapter Isolation**: No cross-adapter helper dependencies
 
 **Folder Purpose:**
 - `pre_work/`: Infrastructure preparation before adapter can execute (e.g., rescue mode, disk prep)
@@ -572,9 +583,9 @@ class TalosAdapter(PlatformAdapter):
 - Script reference validation
 
 ### Integration Tests
-- Adapter rendering with mocked APIs
-- Capability data flow between adapters
-- Context file generation and parsing
+**Critical Principle: Same Code Paths as Production**
+- Tests must use the exact same service classes, dependency injection, and business logic as production
+- This ensures maximum code coverage and validates actual production behavior
 
 ### End-to-End Tests
 - Full workflow (init → render → validate)
