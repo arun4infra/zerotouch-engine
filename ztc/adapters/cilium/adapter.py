@@ -133,13 +133,9 @@ class CiliumAdapter(PlatformAdapter):
         """Generate Cilium manifests and capability data"""
         config = CiliumConfig(**self.config)
         
-        # Render Jinja2 template
-        template = self.jinja_env.get_template("cilium/manifests.yaml.j2")
-        manifests_content = await template.render_async(
-            version=config.version,
-            bgp_enabled=config.bgp.enabled,
-            bgp_asn=config.bgp.asn if config.bgp.enabled else None
-        )
+        # Use complete bootstrap manifest from reference
+        template = self.jinja_env.get_template("cilium/complete-bootstrap.yaml.j2")
+        manifests_content = await template.render_async(version=config.version)
         
         # Create CNI capability
         cni_capability = CNIArtifacts(
@@ -153,10 +149,16 @@ class CiliumAdapter(PlatformAdapter):
             crds_embedded=True
         )
         
+        manifests = {}
+        
+        # 1. ArgoCD Application for Gateway API (wave 4)
+        manifests["argocd/overlays/main/core/04-gateway-config.yaml"] = self._render_gateway_argocd_app()
+        
+        # 2. CNI manifests for Talos bootstrap embedding
+        manifests["talos/templates/cilium/02-configmaps.yaml"] = manifests_content
+        
         return AdapterOutput(
-            manifests={
-                "manifests.yaml": manifests_content
-            },
+            manifests=manifests,
             stages=[],
             env_vars={},
             capabilities={
@@ -168,6 +170,40 @@ class CiliumAdapter(PlatformAdapter):
                 "version": config.version
             }
         )
+    
+    def _render_gateway_argocd_app(self) -> str:
+        """Generate ArgoCD Application for Gateway API"""
+        app = {
+            "apiVersion": "argoproj.io/v1alpha1",
+            "kind": "Application",
+            "metadata": {
+                "name": "gateway-foundation",
+                "namespace": "argocd",
+                "annotations": {
+                    "argocd.argoproj.io/sync-wave": "4"
+                }
+            },
+            "spec": {
+                "project": "default",
+                "source": {
+                    "repoURL": "https://github.com/arun4infra/zerotouch-platform.git",
+                    "targetRevision": "main",
+                    "path": "bootstrap/argocd/overlays/main/core/gateway/gateway-foundation"
+                },
+                "destination": {
+                    "server": "https://kubernetes.default.svc",
+                    "namespace": "default"
+                },
+                "syncPolicy": {
+                    "automated": {
+                        "prune": True,
+                        "selfHeal": True
+                    },
+                    "syncOptions": ["ServerSideApply=true"]
+                }
+            }
+        }
+        return yaml.dump(app, sort_keys=False)
     
     def load_metadata(self) -> Dict[str, Any]:
         """Load adapter.yaml metadata"""

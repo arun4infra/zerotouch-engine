@@ -199,7 +199,7 @@ class TalosAdapter(PlatformAdapter):
                 cni_manifests=cni_manifests
             )
             
-            manifests[f"nodes/{node.name}/config.yaml"] = node_config
+            manifests[f"talos/nodes/{node.name}/config.yaml"] = node_config
         
         # Generate talosconfig
         talosconfig_template = self.jinja_env.get_template("talos/talosconfig.j2")
@@ -207,7 +207,7 @@ class TalosAdapter(PlatformAdapter):
             cluster_name=config.cluster_name,
             cluster_endpoint=config.cluster_endpoint
         )
-        manifests["talosconfig"] = talosconfig
+        manifests["talos/talosconfig"] = talosconfig
         
         # Create Kubernetes API capability
         k8s_capability = KubernetesAPICapability(

@@ -94,7 +94,7 @@ class HetznerAdapter(PlatformAdapter):
         return []
     
     async def render(self, ctx: 'ContextSnapshot') -> AdapterOutput:
-        """Generate Hetzner adapter output with capability data"""
+        """Generate Hetzner adapter output with capability data and secrets"""
         config = HetznerConfig(**self.config)
         
         # Query Hetzner API for server IDs
@@ -110,8 +110,39 @@ class HetznerAdapter(PlatformAdapter):
             rescue_mode_enabled=config.rescue_mode_confirm
         )
         
+        # Generate secrets structure matching reference
+        manifests = {}
+        secrets_path = "argocd/overlays/main/dev/secrets"
+        
+        # HCloud Secret
+        manifests[f"{secrets_path}/hcloud.secret.yaml"] = self._render_secret(
+            name="hcloud",
+            namespace="kube-system",
+            string_data={"token": config.api_token}
+        )
+        
+        # External DNS Hetzner Secret
+        manifests[f"{secrets_path}/external-dns-hetzner.secret.yaml"] = self._render_secret(
+            name="external-dns-hetzner",
+            namespace="kube-system",
+            string_data={"HETZNER_DNS_TOKEN": config.api_token}
+        )
+        
+        # KSOPS Generator
+        manifests[f"{secrets_path}/ksops-generator.yaml"] = self._render_ksops_generator([
+            "./hcloud.secret.yaml",
+            "./external-dns-hetzner.secret.yaml"
+        ])
+        
+        # Kustomization
+        manifests[f"{secrets_path}/kustomization.yaml"] = """apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+generators:
+- ksops-generator.yaml
+"""
+        
         return AdapterOutput(
-            manifests={},  # Hetzner generates no manifests
+            manifests=manifests,
             stages=[],
             env_vars={
                 "HCLOUD_TOKEN": config.api_token,
@@ -125,6 +156,38 @@ class HetznerAdapter(PlatformAdapter):
                 "provider": "hetzner"
             }
         )
+    
+    def _render_secret(self, name: str, namespace: str, string_data: Dict[str, str]) -> str:
+        """Generate Secret YAML"""
+        secret = {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {
+                "name": name,
+                "namespace": namespace,
+                "annotations": {
+                    "argocd.argoproj.io/sync-wave": "0"
+                }
+            },
+            "type": "Opaque",
+            "stringData": string_data
+        }
+        return yaml.dump(secret, sort_keys=False)
+    
+    def _render_ksops_generator(self, files: List[str]) -> str:
+        """Generate KSOPS generator YAML"""
+        generator = {
+            "apiVersion": "viaduct.ai/v1",
+            "kind": "ksops",
+            "metadata": {
+                "name": "dev-secrets-generator",
+                "annotations": {
+                    "config.kubernetes.io/function": "exec:\n  path: ksops"
+                }
+            },
+            "files": files
+        }
+        return yaml.dump(generator, sort_keys=False)
     
     async def _get_server_id_by_ip(self, ip: str, api_token: str) -> str:
         """Query Hetzner API for server ID by IP"""

@@ -233,18 +233,17 @@ class PlatformEngine:
     def write_adapter_output(self, generated_dir: Path, adapter_name: str, output: 'AdapterOutput'):
         """Write adapter manifests to generated directory
         
+        Adapters control full directory structure via manifest keys.
+        No forced adapter subdirectories - enables shared paths like argocd/, talos/.
+        
         Args:
             generated_dir: Base generated directory path
-            adapter_name: Name of the adapter
+            adapter_name: Name of the adapter (unused, kept for compatibility)
             output: AdapterOutput containing manifests
         """
-        # Create adapter-specific directory
-        adapter_dir = generated_dir / adapter_name
-        adapter_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Write each manifest file
+        # Write each manifest file directly to adapter-specified path
         for filename, content in output.manifests.items():
-            manifest_path = adapter_dir / filename
+            manifest_path = generated_dir / filename
             manifest_path.parent.mkdir(parents=True, exist_ok=True)
             manifest_path.write_text(content)
     
