@@ -22,22 +22,39 @@ ztc/adapters/ksops/
 ├── config.py               # KSOPSConfig Pydantic model
 ├── templates/              # (empty - no manifests)
 └── scripts/
+    ├── shared/             # Adapter-scoped shared helpers
+    │   ├── s3-helpers.sh   # S3 operations (configure, retrieve, backup, exists)
+    │   └── env-helpers.sh  # Multi-line environment variable handling
     ├── bootstrap/          # 8 scripts
     │   ├── 00-inject-identities.sh
     │   ├── 03-bootstrap-storage.sh
     │   ├── 08a-install-ksops.sh
-    │   ├── 08b-generate-age-keys.sh
+    │   ├── 08b-generate-age-keys.sh      # Uses: # INCLUDE: shared/s3-helpers.sh
     │   ├── 08c-inject-age-key.sh
     │   ├── 08d-create-age-backup.sh
     │   ├── apply-env-substitution.sh
     │   └── 08e-deploy-ksops-package.sh
     ├── post_work/          # 1 script
     │   └── 09c-wait-ksops-sidecar.sh
+    ├── utilities/          # 5 scripts for CLI commands
+    │   ├── setup-env-secrets.sh
+    │   ├── retrieve-age-key.sh           # Uses: # INCLUDE: shared/s3-helpers.sh
+    │   ├── inject-offline-key.sh
+    │   ├── create-age-backup.sh
+    │   └── 08b-backup-age-to-s3.sh
+    ├── generators/         # 7 scripts for secret generation
+    │   ├── create-dot-env.sh             # Uses: # INCLUDE: shared/s3-helpers.sh, shared/env-helpers.sh
+    │   ├── generate-platform-sops.sh
+    │   ├── generate-service-env-sops.sh
+    │   ├── generate-core-secrets.sh
+    │   ├── generate-env-secrets.sh
+    │   ├── generate-ghcr-pull-secret.sh
+    │   └── generate-tenant-registry-secrets.sh
     └── validation/         # 7 scripts
         ├── 11-verify-ksops.sh
         ├── validate-ksops-package.sh
         ├── validate-secret-injection.sh
-        ├── validate-age-keys-and-storage.sh
+        ├── validate-age-keys-and-storage.sh  # Uses: # INCLUDE: shared/s3-helpers.sh
         ├── validate-sops-config.sh
         ├── validate-sops-encryption.sh
         └── validate-age-key-decryption.sh
@@ -57,23 +74,23 @@ graph LR
 ### 1. Configuration Model (config.py)
 
 ```python
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from typing import Optional
 
 class KSOPSConfig(BaseModel):
     """KSOPS adapter configuration"""
     
-    # S3 Configuration
-    s3_access_key: str = Field(..., min_length=1)
-    s3_secret_key: str = Field(..., min_length=1)
+    # S3 Configuration (secrets use SecretStr)
+    s3_access_key: SecretStr = Field(..., min_length=1)
+    s3_secret_key: SecretStr = Field(..., min_length=1)
     s3_endpoint: str = Field(..., pattern=r'^https?://')
     s3_region: str = Field(..., min_length=1)
     s3_bucket_name: str = Field(..., min_length=1)
     
-    # GitHub App Configuration
+    # GitHub App Configuration (private key uses SecretStr)
     github_app_id: int = Field(..., gt=0)
     github_app_installation_id: int = Field(..., gt=0)
-    github_app_private_key: str = Field(..., min_length=1)
+    github_app_private_key: SecretStr = Field(..., min_length=1)
     
     # Tenant Configuration
     tenant_org_name: str = Field(..., pattern=r'^[a-zA-Z0-9-]+$')
@@ -81,9 +98,10 @@ class KSOPSConfig(BaseModel):
     
     @field_validator('github_app_private_key')
     @classmethod
-    def validate_pem_format(cls, v: str) -> str:
+    def validate_pem_format(cls, v: SecretStr) -> SecretStr:
         """Validate PEM format"""
-        if not v.startswith('-----BEGIN'):
+        secret_value = v.get_secret_value()
+        if not secret_value.startswith('-----BEGIN'):
             raise ValueError('Private key must be in PEM format')
         return v
 ```
@@ -207,8 +225,10 @@ class KSOPSAdapter(PlatformAdapter):
                 timeout=30,
                 context_data={
                     "github_app_id": config.github_app_id,
-                    "github_app_installation_id": config.github_app_installation_id,
-                    "github_app_private_key": config.github_app_private_key
+                    "github_app_installation_id": config.github_app_installation_id
+                },
+                secret_env_vars={
+                    "GITHUB_APP_PRIVATE_KEY": config.github_app_private_key.get_secret_value()
                 }
             ),
             ScriptReference(
@@ -217,10 +237,12 @@ class KSOPSAdapter(PlatformAdapter):
                 description="Bootstrap Hetzner Object Storage",
                 timeout=120,
                 context_data={
-                    "s3_access_key": config.s3_access_key,
-                    "s3_secret_key": config.s3_secret_key,
                     "s3_endpoint": config.s3_endpoint,
                     "s3_region": config.s3_region
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
                 }
             ),
             ScriptReference(
@@ -235,11 +257,13 @@ class KSOPSAdapter(PlatformAdapter):
                 description="Generate or retrieve Age keypair",
                 timeout=60,
                 context_data={
-                    "s3_access_key": config.s3_access_key,
-                    "s3_secret_key": config.s3_secret_key,
                     "s3_endpoint": config.s3_endpoint,
                     "s3_region": config.s3_region,
                     "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
                 }
             ),
             ScriptReference(
@@ -313,11 +337,13 @@ class KSOPSAdapter(PlatformAdapter):
                 description="Verify key storage",
                 timeout=60,
                 context_data={
-                    "s3_access_key": config.s3_access_key,
-                    "s3_secret_key": config.s3_secret_key,
                     "s3_endpoint": config.s3_endpoint,
                     "s3_region": config.s3_region,
                     "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
                 }
             ),
             ScriptReference(
@@ -340,6 +366,46 @@ class KSOPSAdapter(PlatformAdapter):
             )
         ]
     
+    def check_health(self) -> None:
+        """Pre-flight S3 connectivity check (uses localized imports)"""
+        # Localized import - only loaded when health check runs
+        import boto3
+        from botocore.exceptions import ClientError
+        
+        config = KSOPSConfig(**self.config)
+        
+        try:
+            client = boto3.client(
+                's3',
+                endpoint_url=config.s3_endpoint,
+                aws_access_key_id=config.s3_access_key.get_secret_value(),
+                aws_secret_access_key=config.s3_secret_key.get_secret_value(),
+                region_name=config.s3_region
+            )
+            
+            # Verify bucket exists and is accessible
+            client.head_bucket(Bucket=config.s3_bucket_name)
+            
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                raise PreFlightError(
+                    f"S3 bucket '{config.s3_bucket_name}' not found",
+                    hint="Create bucket or check bucket name in configuration"
+                )
+            elif error_code == '403':
+                raise PreFlightError(
+                    f"Access denied to S3 bucket '{config.s3_bucket_name}'",
+                    hint="Verify S3 credentials have read/write permissions"
+                )
+            else:
+                raise PreFlightError(f"S3 connectivity check failed: {e}")
+        except Exception as e:
+            raise PreFlightError(
+                f"Cannot reach S3 endpoint {config.s3_endpoint}: {e}",
+                hint="Check network connectivity and endpoint URL"
+            )
+    
     async def render(self, ctx: 'ContextSnapshot') -> AdapterOutput:
         """Generate capability data (no manifests)"""
         config = KSOPSConfig(**self.config)
@@ -356,6 +422,13 @@ class KSOPSAdapter(PlatformAdapter):
             sops_config_path=".sops.yaml"
         )
         
+        # Create typed output data (prevents secret leakage)
+        output_data = KSOPSOutputData(
+            s3_bucket=config.s3_bucket_name,
+            tenant_org=config.tenant_org_name,
+            tenant_repo=config.tenant_repo_name
+        )
+        
         return AdapterOutput(
             manifests={},  # No manifests (scripts handle deployment)
             stages=[],
@@ -363,11 +436,7 @@ class KSOPSAdapter(PlatformAdapter):
             capabilities={
                 "secrets-management": secrets_capability
             },
-            data={
-                "s3_bucket": config.s3_bucket_name,
-                "tenant_org": config.tenant_org_name,
-                "tenant_repo": config.tenant_repo_name
-            }
+            data=output_data.model_dump()
         )
 ```
 
@@ -407,6 +476,35 @@ class SecretsManagementCapability(BaseModel):
     provider: str  # "ksops", "sealed-secrets", "external-secrets"
     s3_bucket: str
     sops_config_path: str
+```
+
+### 5. Output Data Model (output.py addition)
+
+```python
+from pydantic import BaseModel, field_validator, SecretStr
+
+class KSOPSOutputData(BaseModel):
+    """KSOPS adapter output metadata (non-sensitive only)
+    
+    Prevents accidental secret leakage in adapter output.
+    """
+    s3_bucket: str
+    tenant_org: str
+    tenant_repo: str
+    
+    class Config:
+        extra = "forbid"  # Reject unknown fields
+    
+    @field_validator('*')
+    @classmethod
+    def no_secret_str(cls, v):
+        """Reject SecretStr types in output"""
+        if isinstance(v, SecretStr):
+            raise ValueError(
+                "SecretStr not allowed in adapter output. "
+                "Use secret_env_vars in ScriptReference instead."
+            )
+        return v
 ```
 
 ## Data Models
@@ -687,10 +785,12 @@ import typer
 class KSOPSAdapter(PlatformAdapter, CLIExtension):
     """KSOPS adapter with lifecycle and CLI commands"""
     
-    def get_cli_category(self) -> str:
-        """Return CLI category name
+    @staticmethod
+    def get_cli_category() -> str:
+        """Return CLI category name (static method for lazy loading)
         
-        Maps selection_group 'secrets_management' to category 'secret'
+        Maps selection_group 'secrets_management' to category 'secret'.
+        Static method allows CLI registration without adapter instantiation.
         """
         return "secret"
     
@@ -762,18 +862,22 @@ def init_secrets_command(self, env: str):
     # 2. Generate context data from arguments and config
     context_data = {
         "env": env,
-        "s3_access_key": self.config["s3_access_key"],
-        "s3_secret_key": self.config["s3_secret_key"],
         "s3_endpoint": self.config["s3_endpoint"],
         "s3_region": self.config["s3_region"],
         "s3_bucket_name": self.config["s3_bucket_name"]
     }
     
-    # 3. Execute script with context
-    executor = ScriptExecutor()
-    result = executor.execute(script_ref, context_data)
+    # 3. Extract secrets from SecretStr fields
+    secret_env_vars = {
+        "S3_ACCESS_KEY": self.config["s3_access_key"].get_secret_value(),
+        "S3_SECRET_KEY": self.config["s3_secret_key"].get_secret_value()
+    }
     
-    # 4. Display results
+    # 4. Execute script with context and secrets
+    executor = ScriptExecutor()
+    result = executor.execute(script_ref, context_data, secret_env_vars)
+    
+    # 5. Display results
     if result.exit_code == 0:
         console.print(f"[green]✓[/green] Secrets initialized for {env}")
     else:
@@ -1005,25 +1109,59 @@ When adapting scripts from zerotouch-platform to ZTC adapter pattern:
    - Add context file validation and jq parsing
    - Map original arguments to context JSON keys
 
-2. **Inline Helper Functions**
-   - Copy helper function implementations directly into script
+2. **Use Shared Helpers via Include Markers**
+   - Add `# INCLUDE: shared/s3-helpers.sh` markers for helper injection
+   - Helpers injected at build-time during script extraction
    - Remove `source` statements for external helpers
-   - Preserve original function logic unchanged
+   - Maintain single source of truth in `scripts/shared/`
 
-3. **Preserve Core Business Logic**
+3. **Add META_REQUIRE Headers**
+   - Document required context fields at script top
+   - Enables contract validation in unit tests
+   - Example:
+   ```bash
+   #!/usr/bin/env bash
+   # META_REQUIRE: s3_bucket_name
+   # META_REQUIRE: s3_endpoint
+   # META_REQUIRE: s3_region
+   # INCLUDE: shared/s3-helpers.sh
+   
+   set -euo pipefail
+   ```
+
+4. **Separate Secrets from Configuration**
+   - Read secrets from environment variables
+   - Read configuration from context file
+   - Example:
+   ```bash
+   # Configuration from context
+   S3_BUCKET=$(jq -r '.s3_bucket_name' "$ZTC_CONTEXT_FILE")
+   S3_REGION=$(jq -r '.s3_region' "$ZTC_CONTEXT_FILE")
+   
+   # Secrets from environment
+   S3_SECRET_KEY="${S3_SECRET_KEY:?S3_SECRET_KEY not set}"
+   GITHUB_APP_PRIVATE_KEY="${GITHUB_APP_PRIVATE_KEY:?GITHUB_APP_PRIVATE_KEY not set}"
+   ```
+
+5. **Preserve Core Business Logic**
    - Keep all API calls, kubectl commands, validation logic identical
    - Maintain error handling and exit codes
    - Preserve retry logic and timeouts
 
-4. **Add Context File Validation**
+6. **Add Context File Validation**
    ```bash
    if [[ -z "${ZTC_CONTEXT_FILE:-}" ]]; then
        echo "ERROR: ZTC_CONTEXT_FILE not set" >&2
        exit 1
    fi
+   
+   if [[ ! -f "$ZTC_CONTEXT_FILE" ]]; then
+       echo "ERROR: Context file not found: $ZTC_CONTEXT_FILE" >&2
+       exit 1
+   fi
    ```
 
-5. **Reference Original Scripts**
+7. **Reference Original Scripts**
    - For implementation details, refer to `zerotouch-platform/scripts/bootstrap/infra/secrets/`
    - Maintain same behavior and output as original scripts
    - Document any deviations from original implementation
