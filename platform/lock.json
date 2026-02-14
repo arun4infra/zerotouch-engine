@@ -1,6 +1,6 @@
 {
-  "platform_hash": "b97a869ed7898256ee55eb07a2296405d0f99403e2b87eaeee0dc1ec848c5cfc",
-  "artifacts_hash": "bbd1e5cfb3bec8e3a69908b1540cf95fc37f01dd4578f0d4dd8de2ff183132c6",
+  "platform_hash": "d86c4e5ca3df771f9838dd4e5409c60e0520c0b53f88efc7b596b2e579372b71",
+  "artifacts_hash": "1ec7a0eb61b814e747dd8304e37336115fc307ea34a2c0cff081229e6b468ec6",
   "ztc_version": "1.0.0",
   "adapters": {
     "hetzner": {
@@ -48,6 +48,14 @@
       "phase": "runtime"
     },
     "gateway-api": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "agent-sandbox": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "agent-gateway": {
       "version": "1.0.0",
       "phase": "runtime"
     }

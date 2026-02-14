@@ -91,3 +91,15 @@ gateway-api:
   email: admin@nutgraf.in
   hetzner_location: fsn1
   mode: production
+
+agent-sandbox:
+  image_registry: us-central1-docker.pkg.dev/k8s-staging-images/agent-sandbox
+  image_tag: latest-main
+  namespace: agent-sandbox-system
+  mode: production
+
+agent-gateway:
+  image_tag: latest
+  namespace: platform-agent-gateway
+  domain: agentgateway.nutgraf.in
+  mode: production

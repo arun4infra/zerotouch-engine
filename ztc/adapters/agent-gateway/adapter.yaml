@@ -1,0 +1,10 @@
+name: agent-gateway
+version: 1.0.0
+description: Agent Gateway routing and authentication for platform services
+phase: runtime
+requires:
+  - gitops-platform
+  - kubernetes-api
+  - gateway-api
+provides:
+  - agent-gateway
