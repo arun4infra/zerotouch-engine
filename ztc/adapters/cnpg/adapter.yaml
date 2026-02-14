@@ -1,0 +1,22 @@
+name: cnpg
+version: 1.0.0
+phase: runtime
+selection_group: runtime_foundations
+is_default: false
+group_prompt: "Select runtime foundations"
+group_help: "CloudNativePG PostgreSQL operator"
+provides:
+  - capability: database-operator
+    version: v1.0
+requires:
+  - capability: gitops-platform
+    version: v1.0
+  - capability: kubernetes-api
+    version: v1.0
+supported_versions:
+  - 0.27.0
+  - 0.26.0
+  - 0.25.0
+default_version: 0.27.0
+config_schema: schema.json
+output_schema: output-schema.json

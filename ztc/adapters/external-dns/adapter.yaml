@@ -1,0 +1,13 @@
+name: external-dns
+version: 1.0.0
+description: External-DNS for automatic DNS management with dynamic provider selection
+phase: runtime
+selection_group: runtime-foundations
+category: runtime
+
+requires:
+  - gitops-platform
+  - kubernetes-api
+  - cloud-infrastructure
+
+provides: []

@@ -55,3 +55,39 @@ crossplane:
   mode: production
   providers:
     - kubernetes
+
+cert-manager:
+  version: v1.19.2
+  namespace: cert-manager
+  enable_gateway_api: true
+  mode: production
+
+cnpg:
+  version: 0.27.0
+  namespace: cnpg-system
+  mode: production
+
+keda:
+  version: 2.18.1
+  namespace: keda
+  mode: production
+
+nats:
+  version: 1.2.6
+  namespace: nats
+  jetstream_file_store_size: 10Gi
+  jetstream_memory_store_size: 1Gi
+  mode: production
+
+external-dns:
+  version: 1.15.0
+  namespace: external-dns
+  provider: hetzner
+  mode: production
+
+gateway-api:
+  gateway_api_version: v1.4.1
+  domain: nutgraf.in
+  email: admin@nutgraf.in
+  hetzner_location: fsn1
+  mode: production

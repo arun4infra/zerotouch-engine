@@ -1,6 +1,6 @@
 {
-  "platform_hash": "861d2c5a2a1afad7e0b71a13aa597f962b6ac429a4aa515c9de3cd93b05dcd57",
-  "artifacts_hash": "78db8df6b6e71103d33b729aacdf9437cd6fce559bc7ad538793debe658bae37",
+  "platform_hash": "bbabe61eafc73d71e26db5fcd808c4370ac3454064b100211631d57c2db970c8",
+  "artifacts_hash": "dce4d989b8cdb92d89c7609113c9ad7e47aab32001fe3956b479dbbcc88f04cc",
   "ztc_version": "1.0.0",
   "adapters": {
     "hetzner": {
@@ -26,6 +26,26 @@
     "crossplane": {
       "version": "1.0.0",
       "phase": "foundation"
+    },
+    "cert-manager": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "cnpg": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "keda": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "nats": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "external-dns": {
+      "version": "1.0.0",
+      "phase": "runtime"
     }
   }
 }

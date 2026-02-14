@@ -1,0 +1,25 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/00-gateway-api-crds.yaml #}
+{# Migration: Converted to Jinja2 template with version from config #}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kubernetes-sigs/gateway-api
+    targetRevision: {{ gateway_api_version }}
+    path: config/crd/standard
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ""
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

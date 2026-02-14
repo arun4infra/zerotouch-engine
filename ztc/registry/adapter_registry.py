@@ -83,11 +83,19 @@ class AdapterRegistry:
                 module = importlib.import_module(adapter_module_path)
                 # Look for adapter class (convention: {Name}Adapter or uppercase first letter)
                 # Try multiple naming conventions
+                # Handle hyphenated names: cert-manager -> CertManager
+                clean_name = adapter_dir.name.replace("-", "").replace("_", "")
                 possible_names = [
                     f"{adapter_dir.name.capitalize()}Adapter",  # talos -> TalosAdapter
                     f"{adapter_dir.name.upper()}Adapter",       # ksops -> KSOPSAdapter
-                    f"{adapter_dir.name.title()}Adapter"        # hetzner -> HetznerAdapter
+                    f"{adapter_dir.name.title()}Adapter",       # hetzner -> HetznerAdapter
+                    f"{clean_name.title()}Adapter"              # cert-manager -> CertmanagerAdapter
                 ]
+                # For hyphenated names, also try proper camelCase
+                if "-" in adapter_dir.name or "_" in adapter_dir.name:
+                    parts = adapter_dir.name.replace("_", "-").split("-")
+                    camel_case = "".join(p.capitalize() for p in parts)
+                    possible_names.append(f"{camel_case}Adapter")  # cert-manager -> CertManagerAdapter
                 
                 for adapter_class_name in possible_names:
                     if hasattr(module, adapter_class_name):

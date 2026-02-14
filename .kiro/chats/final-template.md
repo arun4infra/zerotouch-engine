@@ -1,3 +1,4 @@
+## Conditions:    
 - Design the implementation for a new ZTC Adapter in below format.
 - the spec files must clealrly reference the source files from origional ztp project so that they can reuse.
 - only diff is that original script passes args and the migrated script will use context json for inputs.

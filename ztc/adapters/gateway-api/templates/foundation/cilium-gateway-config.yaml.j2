@@ -1,0 +1,15 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/gateway/gateway-foundation/cilium-gateway-config.yaml #}
+{# Migration: Converted to Jinja2 template #}
+apiVersion: cilium.io/v2alpha1
+kind: CiliumGatewayClassConfig
+metadata:
+  name: cilium-gateway-config
+  namespace: default
+  labels:
+    app.kubernetes.io/name: cilium-gateway-config
+    app.kubernetes.io/component: gateway-controller
+    app.kubernetes.io/part-of: zerotouch-platform
+spec:
+  service:
+    type: LoadBalancer
+    externalTrafficPolicy: Local

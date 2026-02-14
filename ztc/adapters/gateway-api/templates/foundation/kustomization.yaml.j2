@@ -1,0 +1,7 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/gateway/gateway-foundation/kustomization.yaml #}
+{# Migration: Converted to Jinja2 template #}
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- cilium-gateway-config.yaml
+- cilium-gateway-rbac.yaml

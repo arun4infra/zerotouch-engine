@@ -1,0 +1,12 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/gateway/gateway-config/bootstrap-issuer.yaml #}
+{# Migration: Converted to Jinja2 template #}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+  labels:
+    app.kubernetes.io/name: selfsigned-issuer
+    app.kubernetes.io/component: certificate-issuer
+    app.kubernetes.io/part-of: zerotouch-platform
+spec:
+  selfSigned: {}

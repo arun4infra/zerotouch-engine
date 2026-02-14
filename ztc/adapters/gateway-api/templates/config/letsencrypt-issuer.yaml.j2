@@ -1,0 +1,49 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/gateway/gateway-config/letsencrypt-issuer.yaml #}
+{# Migration: Converted to Jinja2 template with email from config #}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    app.kubernetes.io/name: letsencrypt-staging
+    app.kubernetes.io/component: certificate-issuer
+    app.kubernetes.io/part-of: zerotouch-platform
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: {{ email }}
+    privateKeySecretRef:
+      name: letsencrypt-staging-private-key
+    solvers:
+      - dns01:
+          webhook:
+            solverName: hetzner
+            groupName: acme.hetzner.com
+            config:
+              tokenSecretKeyRef:
+                name: hetzner-dns
+                key: api-key
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-production
+  labels:
+    app.kubernetes.io/name: letsencrypt-production
+    app.kubernetes.io/component: certificate-issuer
+    app.kubernetes.io/part-of: zerotouch-platform
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ email }}
+    privateKeySecretRef:
+      name: letsencrypt-production-private-key
+    solvers:
+      - dns01:
+          webhook:
+            solverName: hetzner
+            groupName: acme.hetzner.com
+            config:
+              tokenSecretKeyRef:
+                name: hetzner-dns
+                key: api-key
