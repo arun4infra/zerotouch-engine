@@ -1,6 +1,10 @@
-Design the implementation for a new ZTC Adapter in below format.
-the spec files must clealrly reference the source files from origional ztp project so that they can reuse.
-only diff is that original script passes args and the migrated script will use context json for inputs.
+- Design the implementation for a new ZTC Adapter in below format.
+- the spec files must clealrly reference the source files from origional ztp project so that they can reuse.
+- only diff is that original script passes args and the migrated script will use context json for inputs.
+- you should add the source reference script at top of each script.
+- The new scripts should align the patterns more closely with the original for consistency.
+- you should not simplify the new scripts.
+- New generated files should follow same file structire as original
 
 - Refer argocd/tests/ integration test cases for pattern.
 - Tests must use the exact same service classes, dependency injection, and business logic as production
@@ -14,9 +18,7 @@ Verify files at platform/generated/{adapter}/
 Test actual manifest folders and its files for all env
 Test cases must validate the geneartion of each file the adapter is responsible for in test cases.
 
-you should add the source reference script at top of each script.
-The new scripts should align the patterns more closely with the original for consistency.
-you should not simplify the new scripts.
+
 
 ## Adapter - Design
 

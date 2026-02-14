@@ -13,4 +13,8 @@ i want you to read and understand below first
 Go through all the existing adapters before proposing - you have to align with existing pattern.
 for reference- here is a genearted infra using ztc render cli command for existing adapter. - zerotouch-engine/platform/
 
+here is reference specs that was created for argocd - .kiro/specs/argocd-adapter/
+we have to create similar spec for cross plane.
+analyse and report.
+
 #just-report.md 
