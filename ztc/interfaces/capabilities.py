@@ -45,6 +45,14 @@ class SecretsManagementCapability(BaseModel):
         return {"SOPS_AGE_RECIPIENTS": self.age_public_key}
 
 
+class InfrastructureProvisioningCapability(BaseModel):
+    """Strict contract for 'infrastructure-provisioning' capability providers (Crossplane, Terraform, etc.)"""
+    operator_version: str = Field(..., description="Infrastructure operator version")
+    namespace: str = Field(..., description="Kubernetes namespace")
+    installed_providers: list[str] = Field(..., description="List of installed providers")
+    crds_ready: bool = Field(..., description="Whether provider CRDs are established")
+
+
 class Capability(StrEnum):
     """Type-safe capability identifiers (prevents typos like 'CNI' vs 'cni')"""
     CNI = "cni"
@@ -52,6 +60,7 @@ class Capability(StrEnum):
     CLOUD_INFRASTRUCTURE = "cloud-infrastructure"
     GATEWAY_API = "gateway-api"
     SECRETS_MANAGEMENT = "secrets-management"
+    INFRASTRUCTURE_PROVISIONING = "infrastructure-provisioning"
 
 
 # Bind capability enums to Pydantic models
@@ -61,4 +70,5 @@ CAPABILITY_CONTRACTS: Dict[Capability, Type[BaseModel]] = {
     Capability.CLOUD_INFRASTRUCTURE: CloudInfrastructureCapability,
     Capability.GATEWAY_API: GatewayAPICapability,
     Capability.SECRETS_MANAGEMENT: SecretsManagementCapability,
+    Capability.INFRASTRUCTURE_PROVISIONING: InfrastructureProvisioningCapability,
 }

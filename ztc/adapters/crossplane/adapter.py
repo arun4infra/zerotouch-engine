@@ -176,27 +176,26 @@ class CrossplaneAdapter(PlatformAdapter):
             "providers": config.providers
         }
         
-        # Render core operator Application
+        # Render core operator Application to ArgoCD overlay
         core_template = self.jinja_env.get_template("crossplane/core/application.yaml.j2")
-        manifests["crossplane/core/application.yaml"] = await core_template.render_async(**template_ctx)
+        manifests["argocd/overlays/main/core/01-crossplane.yaml"] = await core_template.render_async(**template_ctx)
         
-        # Render provider manifests
+        # Render provider manifests to foundation directory
         for provider in config.providers:
             provider_template = self.jinja_env.get_template(f"crossplane/providers/{provider}.yaml.j2")
-            manifests[f"crossplane/providers/{provider}.yaml"] = await provider_template.render_async(**template_ctx)
+            manifests[f"argocd/overlays/main/foundation/provider-{provider}.yaml"] = await provider_template.render_async(**template_ctx)
         
-        # Render kustomization
-        kustomization_template = self.jinja_env.get_template("crossplane/kustomization.yaml.j2")
-        manifests["crossplane/kustomization.yaml"] = await kustomization_template.render_async(**template_ctx)
+        # Import capability model
+        from ztc.interfaces.capabilities import InfrastructureProvisioningCapability
         
         # Infrastructure provisioning capability data
         capability_data = {
-            "infrastructure-provisioning": {
-                "operator_version": config.version,
-                "namespace": config.namespace,
-                "installed_providers": config.providers,
-                "crds_ready": False
-            }
+            "infrastructure-provisioning": InfrastructureProvisioningCapability(
+                operator_version=config.version,
+                namespace=config.namespace,
+                installed_providers=config.providers,
+                crds_ready=False
+            )
         }
         
         return AdapterOutput(

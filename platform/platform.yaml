@@ -47,3 +47,11 @@ argocd:
   overlay_environment: main
   admin_password: test-password-123
   mode: production
+
+crossplane:
+  version: 1.16.0
+  namespace: crossplane-system
+  enable_composition_revisions: true
+  mode: production
+  providers:
+    - kubernetes
