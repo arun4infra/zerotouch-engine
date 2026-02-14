@@ -19,7 +19,7 @@ class GatewayAPIScripts(str, Enum):
     VALIDATE_GATEWAY_CONFIG = "validation/validate-gateway-config.sh"
 
 
-class GatewayAPIAdapter(PlatformAdapter):
+class GatewayApiAdapter(PlatformAdapter):
     """Gateway API infrastructure adapter"""
     
     def load_metadata(self) -> Dict[str, Any]:
@@ -132,78 +132,89 @@ class GatewayAPIAdapter(PlatformAdapter):
         
         manifests = {}
         
-        # Get platform repo info from context (provided by argocd adapter)
-        platform_repo_url = ctx.get("platform_repo_url", "https://github.com/arun4infra/zerotouch-platform.git")
-        platform_repo_branch = ctx.get("platform_repo_branch", "main")
-        
-        # Template context
+        # Template context - use hardcoded paths since manifests are generated locally
         template_ctx = {
             "gateway_api_version": config.gateway_api_version,
             "domain": config.domain,
             "email": config.email,
             "hetzner_location": config.hetzner_location,
             "mode": config.mode,
-            "platform_repo_url": platform_repo_url,
-            "platform_repo_branch": platform_repo_branch
+            "platform_repo_url": "https://github.com/arun4infra/zerotouch-platform.git",
+            "platform_repo_branch": "main"
         }
         
+        # Preview mode: minimal Gateway API CRDs only (for WebService compatibility)
+        if config.mode == "preview":
+            preview_crds_template = self.jinja_env.get_template("gateway-api/preview-crds.yaml.j2")
+            manifests["argocd/overlays/preview/gateway-api-crds.yaml"] = await preview_crds_template.render_async(**template_ctx)
+            
+            # Gateway infrastructure capability data (empty for now)
+            capability_data = {}
+            
+            return AdapterOutput(
+                manifests=manifests,
+                stages=[],
+                env_vars={},
+                capabilities=capability_data,
+                data={}
+            )
+        
+        # Production mode: full Gateway API infrastructure
         # Render CRD application
-        crds_template = self.jinja_env.get_template("crds/application.yaml.j2")
+        crds_template = self.jinja_env.get_template("gateway-api/crds/application.yaml.j2")
         manifests["argocd/base/00-gateway-api-crds.yaml"] = await crds_template.render_async(**template_ctx)
         
         # Render foundation manifests
-        foundation_config_template = self.jinja_env.get_template("foundation/cilium-gateway-config.yaml.j2")
+        foundation_config_template = self.jinja_env.get_template("gateway-api/foundation/cilium-gateway-config.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-foundation/cilium-gateway-config.yaml"] = await foundation_config_template.render_async(**template_ctx)
         
-        foundation_rbac_template = self.jinja_env.get_template("foundation/cilium-gateway-rbac.yaml.j2")
+        foundation_rbac_template = self.jinja_env.get_template("gateway-api/foundation/cilium-gateway-rbac.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-foundation/cilium-gateway-rbac.yaml"] = await foundation_rbac_template.render_async(**template_ctx)
         
-        foundation_kustomization_template = self.jinja_env.get_template("foundation/kustomization.yaml.j2")
+        foundation_kustomization_template = self.jinja_env.get_template("gateway-api/foundation/kustomization.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-foundation/kustomization.yaml"] = await foundation_kustomization_template.render_async(**template_ctx)
         
         # Render class manifests
-        class_gatewayclass_template = self.jinja_env.get_template("class/cilium-gatewayclass.yaml.j2")
+        class_gatewayclass_template = self.jinja_env.get_template("gateway-api/class/cilium-gatewayclass.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-class/cilium-gatewayclass.yaml"] = await class_gatewayclass_template.render_async(**template_ctx)
         
-        class_kustomization_template = self.jinja_env.get_template("class/kustomization.yaml.j2")
+        class_kustomization_template = self.jinja_env.get_template("gateway-api/class/kustomization.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-class/kustomization.yaml"] = await class_kustomization_template.render_async(**template_ctx)
         
         # Render config manifests
-        config_bootstrap_issuer_template = self.jinja_env.get_template("config/bootstrap-issuer.yaml.j2")
+        config_bootstrap_issuer_template = self.jinja_env.get_template("gateway-api/config/bootstrap-issuer.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-config/bootstrap-issuer.yaml"] = await config_bootstrap_issuer_template.render_async(**template_ctx)
         
-        config_letsencrypt_issuer_template = self.jinja_env.get_template("config/letsencrypt-issuer.yaml.j2")
+        config_letsencrypt_issuer_template = self.jinja_env.get_template("gateway-api/config/letsencrypt-issuer.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-config/letsencrypt-issuer.yaml"] = await config_letsencrypt_issuer_template.render_async(**template_ctx)
         
-        config_certificate_template = self.jinja_env.get_template("config/gateway-certificate.yaml.j2")
+        config_certificate_template = self.jinja_env.get_template("gateway-api/config/gateway-certificate.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-config/gateway-certificate.yaml"] = await config_certificate_template.render_async(**template_ctx)
         
-        config_gateway_template = self.jinja_env.get_template("config/public-gateway.yaml.j2")
+        config_gateway_template = self.jinja_env.get_template("gateway-api/config/public-gateway.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-config/public-gateway.yaml"] = await config_gateway_template.render_async(**template_ctx)
         
-        config_kustomization_template = self.jinja_env.get_template("config/kustomization.yaml.j2")
+        config_kustomization_template = self.jinja_env.get_template("gateway-api/config/kustomization.yaml.j2")
         manifests["argocd/overlays/main/core/gateway/gateway-config/kustomization.yaml"] = await config_kustomization_template.render_async(**template_ctx)
         
         # Render parent application
-        parent_app_template = self.jinja_env.get_template("parent-app.yaml.j2")
+        parent_app_template = self.jinja_env.get_template("gateway-api/parent-app.yaml.j2")
         manifests["argocd/overlays/main/core/04-gateway-config.yaml"] = await parent_app_template.render_async(**template_ctx)
         
         # Generate environment overlays (dev, staging, prod)
         for env in ["dev", "staging", "prod"]:
             env_template_ctx = {**template_ctx, "environment": env}
-            # Environment-specific gateway configs can be added here if needed
-            # For now, create placeholder .gitkeep files
-            manifests[f"argocd/overlays/main/{env}/gateway/.gitkeep"] = ""
+            
+            # Environment-specific gateway-config application override
+            env_app_template = self.jinja_env.get_template("gateway-api/env-gateway-config-app.yaml.j2")
+            manifests[f"argocd/overlays/main/{env}/04-gateway-config.yaml"] = await env_app_template.render_async(**env_template_ctx)
+            
+            # Environment-specific gateway-config kustomization with patches
+            env_kustomization_template = self.jinja_env.get_template("gateway-api/env-gateway-config-kustomization.yaml.j2")
+            manifests[f"argocd/overlays/main/{env}/gateway-config/kustomization.yaml"] = await env_kustomization_template.render_async(**env_template_ctx)
         
-        # Gateway infrastructure capability data
-        capability_data = {
-            "gateway-infrastructure": {
-                "gateway_name": "public-gateway",
-                "gateway_namespace": "kube-system",
-                "gatewayclass_name": "cilium",
-                "load_balancer_ip": ""  # Populated during bootstrap
-            }
-        }
+        # Gateway infrastructure capability data (empty for now - would need Pydantic model)
+        capability_data = {}
         
         return AdapterOutput(
             manifests=manifests,

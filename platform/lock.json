@@ -1,6 +1,6 @@
 {
-  "platform_hash": "bbabe61eafc73d71e26db5fcd808c4370ac3454064b100211631d57c2db970c8",
-  "artifacts_hash": "dce4d989b8cdb92d89c7609113c9ad7e47aab32001fe3956b479dbbcc88f04cc",
+  "platform_hash": "b97a869ed7898256ee55eb07a2296405d0f99403e2b87eaeee0dc1ec848c5cfc",
+  "artifacts_hash": "bbd1e5cfb3bec8e3a69908b1540cf95fc37f01dd4578f0d4dd8de2ff183132c6",
   "ztc_version": "1.0.0",
   "adapters": {
     "hetzner": {
@@ -44,6 +44,10 @@
       "phase": "runtime"
     },
     "external-dns": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "gateway-api": {
       "version": "1.0.0",
       "phase": "runtime"
     }

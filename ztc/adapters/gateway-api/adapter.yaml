@@ -6,7 +6,7 @@ is_default: false
 group_prompt: "Select Gateway API infrastructure"
 group_help: "Gateway API infrastructure with CRDs, foundation, class, and config"
 provides:
-  - capability: gateway-infrastructure
+  - capability: gateway-api
     version: v1.0
 requires:
   - capability: gitops-platform
