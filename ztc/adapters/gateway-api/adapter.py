@@ -31,6 +31,10 @@ class GatewayApiAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return GatewayAPIConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Gateway API adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

@@ -200,6 +200,50 @@ class PlatformAdapter(ABC):
         return []  # Default: no invalid fields (override in subclasses)
     
     @abstractmethod
+    def init(self) -> List[ScriptReference]:
+        """Return init-phase scripts (before cluster creation)
+        
+        Init scripts execute during 'ztc init' after configuration collection,
+        before any cluster infrastructure exists. They should:
+        
+        - Perform external validation (API access, credentials)
+        - Setup external resources (S3 buckets, DNS records)
+        - NOT require cluster access (no kubectl, no Kubernetes API)
+        - Be orchestrators that call sub-scripts for complex operations
+        
+        Execution Context:
+        - Runs during 'ztc init' command
+        - No cluster exists yet
+        - Can access external APIs (GitHub, cloud providers, S3)
+        - Receives context via $ZTC_CONTEXT_FILE environment variable
+        - Secrets passed via environment variables (not in context file)
+        
+        Lifecycle Order:
+        1. init() - Pre-cluster validation/setup (THIS METHOD)
+        2. Cluster creation
+        3. pre_work_scripts() - Pre-bootstrap setup
+        4. bootstrap_scripts() - Core deployment
+        5. post_work_scripts() - Post-deployment config
+        6. validation_scripts() - Verify success
+        
+        Returns:
+            List of ScriptReference objects with context_data and secret_env_vars
+        
+        Example:
+            return [
+                ScriptReference(
+                    package="ztc.adapters.github.scripts.init",
+                    resource=GitHubScripts.VALIDATE_ACCESS,
+                    description="Validate GitHub API access",
+                    timeout=60,
+                    context_data={"github_app_id": "123456"},
+                    secret_env_vars={"GITHUB_APP_PRIVATE_KEY": "..."}
+                )
+            ]
+        """
+        pass
+    
+    @abstractmethod
     def pre_work_scripts(self) -> List[ScriptReference]:
         """Return pre-work scripts (before adapter bootstrap, e.g., rescue mode)"""
         pass

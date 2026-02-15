@@ -46,6 +46,10 @@ class HetznerAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return HetznerConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Hetzner adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Return interactive prompts for Hetzner configuration"""
         return [

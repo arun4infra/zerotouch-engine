@@ -39,6 +39,10 @@ class CrossplaneAdapter(PlatformAdapter):
         """Return Pydantic model for config validation."""
         return CrossplaneConfig
 
+    def init(self) -> List[ScriptReference]:
+        """Crossplane adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Return list of interactive prompts for user input collection."""
         return [

@@ -28,6 +28,10 @@ class AgentGatewayAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return AgentGatewayConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Agent Gateway adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

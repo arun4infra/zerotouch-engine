@@ -67,6 +67,10 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
     def config_model(self) -> Type[BaseModel]:
         return KSOPSConfig
     
+    def init(self) -> List[ScriptReference]:
+        """KSOPS adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

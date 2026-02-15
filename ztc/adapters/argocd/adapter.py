@@ -39,6 +39,10 @@ class ArgocdAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return ArgoCDConfig
     
+    def init(self) -> List[ScriptReference]:
+        """ArgoCD adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

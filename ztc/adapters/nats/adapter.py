@@ -30,6 +30,10 @@ class NATSAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return NATSConfig
     
+    def init(self) -> List[ScriptReference]:
+        """NATS adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

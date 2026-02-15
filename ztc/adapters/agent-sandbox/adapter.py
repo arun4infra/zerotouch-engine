@@ -20,6 +20,10 @@ class AgentSandboxAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return AgentSandboxConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Agent Sandbox adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

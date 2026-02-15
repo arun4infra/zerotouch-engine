@@ -30,6 +30,10 @@ class CertManagerAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return CertManagerConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Cert-manager adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

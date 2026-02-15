@@ -30,6 +30,10 @@ class KEDAAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return KEDAConfig
     
+    def init(self) -> List[ScriptReference]:
+        """KEDA adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Interactive prompts for ztc init"""
         return [

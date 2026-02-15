@@ -53,6 +53,10 @@ class CiliumAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return CiliumConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Cilium adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Return interactive prompts for Cilium configuration"""
         return [

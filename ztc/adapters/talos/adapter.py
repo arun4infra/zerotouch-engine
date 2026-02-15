@@ -64,6 +64,10 @@ class TalosAdapter(PlatformAdapter):
     def config_model(self) -> Type[BaseModel]:
         return TalosConfig
     
+    def init(self) -> List[ScriptReference]:
+        """Talos adapter has no init scripts"""
+        return []
+    
     def get_required_inputs(self) -> List[InputPrompt]:
         """Return interactive prompts for Talos configuration"""
         return [
