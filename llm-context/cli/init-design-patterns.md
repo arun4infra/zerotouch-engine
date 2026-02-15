@@ -11,10 +11,18 @@
 - GitHub App Private Key loaded from `.env.global` with user confirmation
 
 ## Adapter Selection
-- Hardcoded order: cloud_provider → os → network_tool → gitops_platform → infrastructure_provisioner → DNS → TLS → gateway → secrets_management.
+- Hardcoded order: cloud_provider → git_provider → secrets_management → os → network_tool → gitops_platform → infrastructure_provisioner → DNS → TLS → gateway
 - Single-option groups auto-selected without prompt
 - Multi-option groups show arrow-key selection even with defaults
 - Only adapters with `selection_group` in SELECTION_ORDER are shown
+
+## Init Script Execution
+- After each adapter configuration is collected, init scripts execute immediately
+- Scripts run in adapter selection order: cloud_provider → git_provider → secrets_management → os → network_tool → gitops_platform → infrastructure_provisioner → DNS → TLS → gateway
+- Init scripts validate external APIs, create resources, verify credentials before cluster creation
+- GitHub init script creates tenant repository if it doesn't exist
+- Failures halt execution with clear error messages
+- Platform.yaml written incrementally after each adapter for crash recovery
 
 ## Input Collection
 - Fields with defaults auto-selected, skip prompt (except passwords)

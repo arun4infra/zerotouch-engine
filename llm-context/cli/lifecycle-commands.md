@@ -2,7 +2,7 @@
 
 | Command | Description | Key Options |
 | :--- | :--- | :--- |
-| **`ztc init`** | Initializes platform configuration via interactive prompts. Supports resuming existing configurations and dynamic adapter selection. | `--resume`: Resume from an existing `platform.yaml`. |
+| **`ztc init`** | Initializes platform configuration via interactive prompts. Collects adapter configs, executes init scripts for validation, and generates platform.yaml. Supports resuming existing configurations. | `--resume`: Resume from an existing `platform.yaml`. |
 | **`ztc render`** | Generates platform artifacts (manifests, pipeline config) from `platform.yaml`. It resolves dependencies, creates context snapshots, and writes to `platform/generated`. | `--debug`: Preserves the workspace on failure.<br>`--partial <name>`: Renders only specific adapters. |
 | **`ztc validate`** | Validates generated artifacts against the `platform/lock.json` file to ensure no drift has occurred between configuration and generation. | N/A |
 | **`ztc bootstrap`** | Executes the bootstrap pipeline. It extracts scripts to a secure temporary directory and runs the stage executor. | `--env`: Target environment (default: production).<br>`--skip-cache`: Ignore stage completion cache. |

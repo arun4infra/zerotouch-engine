@@ -53,6 +53,18 @@ class PlatformAdapter(ABC):
         pass
     
     @abstractmethod
+    def init(self) -> List[ScriptReference]:
+        """Scripts to run during init phase before cluster creation
+        
+        Executes after adapter configuration collection, before cluster exists.
+        Use for external API validation, resource creation, credential verification.
+        
+        Returns:
+            List of ScriptReference objects for init phase execution
+        """
+        pass
+    
+    @abstractmethod
     def pre_work_scripts(self) -> List[ScriptReference]:
         """Scripts to run before adapter bootstrap (e.g., rescue mode)"""
         pass

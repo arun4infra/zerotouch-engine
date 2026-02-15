@@ -1,3 +1,4 @@
+version: '1.0'
 hetzner:
   version: v1.0.0
   api_token: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

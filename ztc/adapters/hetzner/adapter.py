@@ -1,7 +1,7 @@
 """Hetzner cloud provider adapter implementation"""
 
 from typing import List, Dict, Any, Type
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pathlib import Path
 from enum import Enum
 import yaml
@@ -18,9 +18,18 @@ from ztc.interfaces.capabilities import CloudInfrastructureCapability
 class HetznerConfig(BaseModel):
     """Hetzner adapter configuration with validation"""
     version: str
-    api_token: str = Field(..., min_length=64, max_length=64, description="Hetzner API token (64-char hex)")
+    api_token: SecretStr = Field(..., description="Hetzner API token (64-char hex)")
     server_ips: List[str] = Field(..., description="List of server IPv4 addresses")
     rescue_mode_confirm: bool = Field(False, description="Confirmation for rescue mode activation")
+    
+    @field_validator("api_token")
+    @classmethod
+    def validate_token_length(cls, v: SecretStr) -> SecretStr:
+        """Validate token is 64 characters"""
+        token_value = v.get_secret_value()
+        if len(token_value) != 64:
+            raise ValueError("API token must be exactly 64 characters")
+        return v
     
     class Config:
         json_schema_extra = {
@@ -35,6 +44,7 @@ class HetznerConfig(BaseModel):
 
 class HetznerScripts(str, Enum):
     """Hetzner adapter script resources"""
+    BOOTSTRAP_STORAGE = "init/bootstrap-storage.sh"
     ENABLE_RESCUE_MODE = "enable-rescue-mode.sh"
     VALIDATE_SERVER_IDS = "validate-server-ids.sh"
 
@@ -47,7 +57,12 @@ class HetznerAdapter(PlatformAdapter):
         return HetznerConfig
     
     def init(self) -> List[ScriptReference]:
-        """Hetzner adapter has no init scripts"""
+        """Return init script for Hetzner storage bootstrap
+        
+        Creates S3 buckets on Hetzner Object Storage before cluster creation.
+        Note: Hetzner init has no dependencies on other adapters.
+        """
+        # Hetzner init has no scripts - storage bootstrap moved to KSOPS
         return []
     
     def get_required_inputs(self) -> List[InputPrompt]:

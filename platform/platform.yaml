@@ -2,7 +2,7 @@ version: '1.0'
 adapters:
   hetzner:
     version: v1.0.0
-    api_token: gdf
+    api_token: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     server_ips:
     - 46.62.218.181
     rescue_mode_confirm: true
@@ -21,17 +21,21 @@ adapters:
   argocd:
     version: v3.2.0
     namespace: argocd
+    platform_repo_url: https://github.com/test-org/platform.git
+    platform_repo_branch: main
+    overlay_environment: main
+    admin_password: test-password-123
+    mode: production
   crossplane:
     version: 1.16.0
     namespace: crossplane-system
     enable_composition_revisions: true
     mode: production
-    providers: kubernetes
+    providers:
+    - kubernetes
   ksops:
     s3_access_key: frgdg
     s3_secret_key: fsdfsdf
     s3_endpoint: https://fsn1.your-objectstorage.com
     s3_region: fsn1
     s3_bucket_name: fsf
-    tenant_org_name: zpt
-    tenant_repo_name: ztp

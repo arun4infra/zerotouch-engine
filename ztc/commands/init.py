@@ -5,9 +5,11 @@ from typing import Dict, List, Optional
 import yaml
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 import questionary
 
 from ztc.registry.adapter_registry import AdapterRegistry
+from ztc.engine.script_executor import ScriptExecutor
 
 
 class InitCommand:
@@ -16,14 +18,15 @@ class InitCommand:
     # Hardcoded selection group order
     SELECTION_ORDER = [
         "cloud_provider",
+        "git_provider",
+        "secrets_management",
         "os",
         "network_tool",
         "gitops_platform",
         "infrastructure_provisioner",
         "DNS",
         "TLS",
-        "gateway",
-        "secrets_management"
+        "gateway"
     ]
     
     def __init__(self, console: Console, env: str = "dev"):
@@ -31,6 +34,7 @@ class InitCommand:
         self.env = env
         self.registry = AdapterRegistry()
         self.config = {}
+        self.secrets_cache = {}  # Store secrets separately from config
         self.env_vars = {}
         self.platform_yaml_path = Path("platform/platform.yaml")
         
@@ -65,7 +69,7 @@ class InitCommand:
         for group in selection_groups:
             self._handle_group_selection(group)
         
-        self.console.print("\n[green]✓[/green] Platform configuration complete")
+        self.console.print("\n[green]✓ Init phase complete[/green]")
         self.console.print(f"Configuration written to: {self.platform_yaml_path}")
     
     def _load_existing_config(self) -> Dict:
@@ -151,6 +155,9 @@ class InitCommand:
         
         # Write incrementally for resume support
         self._write_platform_yaml()
+        
+        # Execute init scripts for this adapter
+        self._execute_init_scripts(selected_adapter)
     
     def _collect_adapter_inputs(self, adapter_name: str) -> Dict:
         """Collect adapter-specific configuration inputs"""
@@ -161,6 +168,19 @@ class InitCommand:
             return {}
         
         self.console.print(f"\n[bold]Configure {adapter_name}[/bold]")
+        
+        # Get adapter config model to detect SecretStr fields
+        config_model = adapter.config_model
+        secret_fields = set()
+        if config_model:
+            for field_name, field_info in config_model.model_fields.items():
+                # Check if field is SecretStr
+                from pydantic import SecretStr
+                if field_info.annotation == SecretStr or (
+                    hasattr(field_info.annotation, '__origin__') and 
+                    field_info.annotation.__origin__ == SecretStr
+                ):
+                    secret_fields.add(field_name)
         
         config = {}
         for input_prompt in inputs:
@@ -201,8 +221,35 @@ class InitCommand:
                         self.console.print("[red]Invalid RSA private key format[/red]")
                         continue
                     
-                    config[input_prompt.name] = key_value
+                    # Store in secrets_cache instead of config
+                    if adapter_name not in self.secrets_cache:
+                        self.secrets_cache[adapter_name] = {}
+                    self.secrets_cache[adapter_name][input_prompt.name] = key_value
                     self.console.print("[green]✓[/green] Valid private key loaded from .env.global")
+                    break
+                continue
+            
+            # Special handling for tenant_repo_url - show instructions first
+            if input_prompt.name == "tenant_repo_url":
+                self.console.print(f"\n[yellow]Please create a GitHub repository for tenant configuration:[/yellow]")
+                self.console.print("[dim]1. Go to https://github.com/new[/dim]")
+                self.console.print("[dim]2. Make it private and initialize with README[/dim]")
+                self.console.print("[dim]3. Copy the repository URL[/dim]\n")
+                
+                while True:
+                    repo_url = Prompt.ask(input_prompt.prompt).strip()
+                    if not repo_url:
+                        self.console.print("[red]Repository URL is required[/red]")
+                        continue
+                    
+                    # Validate URL format
+                    import re
+                    if not re.match(r"^https://github\.com/[^/]+/[^/]+/?$", repo_url):
+                        self.console.print("[red]Invalid GitHub URL format[/red]")
+                        self.console.print("[dim]Expected: https://github.com/org/repo[/dim]")
+                        continue
+                    
+                    config[input_prompt.name] = repo_url.rstrip('/')
                     break
                 continue
             
@@ -341,12 +388,18 @@ class InitCommand:
                         break
                     self.console.print("[red]This field is required[/red]")
             
-            config[input_prompt.name] = value
+            # Store secrets separately from config
+            if input_prompt.name in secret_fields:
+                if adapter_name not in self.secrets_cache:
+                    self.secrets_cache[adapter_name] = {}
+                self.secrets_cache[adapter_name][input_prompt.name] = value
+            else:
+                config[input_prompt.name] = value
         
         return config
     
     def _write_platform_yaml(self):
-        """Write platform.yaml configuration"""
+        """Write platform.yaml configuration (excluding secrets)"""
         platform_data = {
             "version": "1.0",
             "adapters": self.config
@@ -357,3 +410,75 @@ class InitCommand:
         
         with open(self.platform_yaml_path, "w") as f:
             yaml.dump(platform_data, f, default_flow_style=False, sort_keys=False, indent=2)
+    
+    def _execute_init_scripts(self, adapter_name: str):
+        """Execute init scripts for an adapter after configuration collection
+        
+        Args:
+            adapter_name: Name of the adapter to execute init scripts for
+        """
+        while True:
+            # Merge config with secrets for adapter instantiation
+            adapter_config = self.config.get(adapter_name, {}).copy()
+            if adapter_name in self.secrets_cache:
+                adapter_config.update(self.secrets_cache[adapter_name])
+            
+            adapter = self.registry.get_adapter(adapter_name, adapter_config)
+            
+            # Get init scripts from adapter
+            init_scripts = adapter.init()
+            
+            if not init_scripts:
+                return
+            
+            self.console.print(f"\n[bold cyan]Running {adapter_name} init scripts...[/bold cyan]")
+            
+            executor = ScriptExecutor()
+            script_failed = False
+            failed_script_desc = None
+            error_output = None
+            
+            for script_ref in init_scripts:
+                # Execute script with progress indicator
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    TimeElapsedColumn(),
+                    console=self.console
+                ) as progress:
+                    task = progress.add_task(f"→ {script_ref.description}", total=None)
+                    result = executor.execute(script_ref)
+                
+                if result.exit_code != 0:
+                    script_failed = True
+                    failed_script_desc = script_ref.description
+                    error_output = result.stderr
+                    self.console.print(f"[red]✗ Init script failed: {script_ref.description}[/red]")
+                    self.console.print(f"[red]STDERR: {result.stderr}[/red]")
+                    if result.stdout:
+                        self.console.print(f"[yellow]STDOUT: {result.stdout}[/yellow]")
+                    self.console.print(f"[dim]Full logs: .zerotouch-cache/init-logs/[/dim]")
+                    break
+                
+                self.console.print(f"[green]✓[/green] {script_ref.description}")
+            
+            if script_failed:
+                # Prompt user to fix and retry
+                self.console.print(f"\n[yellow]Script failed: {failed_script_desc}[/yellow]")
+                retry = Confirm.ask("Fix the issue and retry configuration for this adapter?", default=True)
+                
+                if retry:
+                    # Re-collect inputs for this adapter
+                    self.console.print(f"\n[bold]Reconfigure {adapter_name}[/bold]")
+                    adapter_config = self._collect_adapter_inputs(adapter_name)
+                    self.config[adapter_name] = adapter_config
+                    self._write_platform_yaml()
+                    # Loop will retry init scripts
+                    continue
+                else:
+                    # User chose not to retry - raise error to stop init flow
+                    raise RuntimeError(f"Init script failed: {failed_script_desc}")
+            else:
+                # All scripts succeeded
+                self.console.print(f"[green]✓[/green] {adapter_name} init complete")
+                break

@@ -16,21 +16,20 @@ console = Console()
 
 class KSOPSScripts(str, Enum):
     """Script resource paths (validated at class load)"""
-    # Pre-work (6 scripts)
+    # Init (1 script - moved from pre_work)
+    SETUP_ENV_SECRETS = "init/setup-env-secrets.sh"
+    
+    # Pre-work (5 scripts)
     GENERATE_AGE_KEYS = "pre_work/08b-generate-age-keys.sh"
-    SETUP_ENV_SECRETS = "pre_work/setup-env-secrets.sh"
     RETRIEVE_AGE_KEY = "pre_work/retrieve-age-key.sh"
     INJECT_OFFLINE_KEY = "pre_work/inject-offline-key.sh"
     CREATE_AGE_BACKUP_UTIL = "pre_work/create-age-backup.sh"
     BACKUP_AGE_TO_S3 = "pre_work/08b-backup-age-to-s3.sh"
     
-    # Bootstrap (7 scripts)
-    INJECT_IDENTITIES = "bootstrap/00-inject-identities.sh"
-    BOOTSTRAP_STORAGE = "bootstrap/03-bootstrap-storage.sh"
+    # Bootstrap (4 scripts - removed INJECT_IDENTITIES, ENV_SUBSTITUTION, BOOTSTRAP_STORAGE)
     INSTALL_KSOPS = "bootstrap/08a-install-ksops.sh"
     INJECT_AGE_KEY = "bootstrap/08c-inject-age-key.sh"
     CREATE_AGE_BACKUP = "bootstrap/08d-create-age-backup.sh"
-    ENV_SUBSTITUTION = "bootstrap/apply-env-substitution.sh"
     DEPLOY_KSOPS = "bootstrap/08e-deploy-ksops-package.sh"
     
     # Post-work (1 script)
@@ -68,11 +67,29 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
         return KSOPSConfig
     
     def init(self) -> List[ScriptReference]:
-        """KSOPS adapter has no init scripts"""
-        return []
+        """Return init-phase scripts for Age key setup"""
+        config = KSOPSConfig(**self.config)
+        
+        return [
+            ScriptReference(
+                package="ztc.adapters.ksops.scripts",
+                resource=KSOPSScripts.SETUP_ENV_SECRETS,
+                description="Setup environment secrets (Age keys, S3 backup)",
+                timeout=300,
+                context_data={
+                    "s3_endpoint": config.s3_endpoint,
+                    "s3_region": config.s3_region,
+                    "s3_bucket_name": config.s3_bucket_name
+                },
+                secret_env_vars={
+                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
+                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
+                }
+            )
+        ]
     
     def get_required_inputs(self) -> List[InputPrompt]:
-        """Interactive prompts for ztc init"""
+        """Interactive prompts for ztc init (GitHub fields removed)"""
         return [
             InputPrompt(
                 name="s3_access_key",
@@ -101,42 +118,10 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
             ),
             InputPrompt(
                 name="s3_bucket_name",
-                prompt="S3 Bucket Name",
+                prompt="S3 Bucket Name (lowercase, hyphens only, 3-63 chars)",
                 type="string",
-                help_text="Bucket for Age key backups"
-            ),
-            InputPrompt(
-                name="github_app_id",
-                prompt="GitHub App ID",
-                type="string",
-                validation=r"^\d+$",
-                help_text="GitHub App ID for ArgoCD authentication (numbers only)"
-            ),
-            InputPrompt(
-                name="github_app_installation_id",
-                prompt="GitHub App Installation ID",
-                type="string",
-                validation=r"^\d+$",
-                help_text="Installation ID for your organization (numbers only)"
-            ),
-            InputPrompt(
-                name="github_app_private_key",
-                prompt="GitHub App Private Key",
-                type="password",
-                validation=r"^-----BEGIN RSA PRIVATE KEY-----[\s\S]+-----END RSA PRIVATE KEY-----$",
-                help_text="Complete RSA private key (must start with -----BEGIN and end with -----END)"
-            ),
-            InputPrompt(
-                name="tenant_org_name",
-                prompt="Tenant Organization Name",
-                type="string",
-                help_text="GitHub organization name"
-            ),
-            InputPrompt(
-                name="tenant_repo_name",
-                prompt="Tenant Repository Name",
-                type="string",
-                help_text="Repository name for tenant config"
+                validation=r"^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$",
+                help_text="S3 bucket naming rules: lowercase letters, numbers, hyphens only. Must start/end with alphanumeric. Length: 3-63 characters."
             )
         ]
     
@@ -222,37 +207,10 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
         ]
     
     def bootstrap_scripts(self) -> List[ScriptReference]:
-        """Core KSOPS setup scripts"""
+        """Core KSOPS setup scripts (GitHub scripts removed - now in GitHub adapter)"""
         config = KSOPSConfig(**self.config)
         
         return [
-            ScriptReference(
-                package="ztc.adapters.ksops.scripts",
-                resource=KSOPSScripts.INJECT_IDENTITIES,
-                description="Inject GitHub App credentials",
-                timeout=30,
-                context_data={
-                    "github_app_id": config.github_app_id,
-                    "github_app_installation_id": config.github_app_installation_id
-                },
-                secret_env_vars={
-                    "GITHUB_APP_PRIVATE_KEY": config.github_app_private_key.get_secret_value()
-                }
-            ),
-            ScriptReference(
-                package="ztc.adapters.ksops.scripts",
-                resource=KSOPSScripts.BOOTSTRAP_STORAGE,
-                description="Bootstrap Hetzner Object Storage",
-                timeout=120,
-                context_data={
-                    "s3_endpoint": config.s3_endpoint,
-                    "s3_region": config.s3_region
-                },
-                secret_env_vars={
-                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
-                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
-                }
-            ),
             ScriptReference(
                 package="ztc.adapters.ksops.scripts",
                 resource=KSOPSScripts.INSTALL_KSOPS,
@@ -273,16 +231,6 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
                 description="Create in-cluster encrypted backup",
                 timeout=30,
                 context_data={}
-            ),
-            ScriptReference(
-                package="ztc.adapters.ksops.scripts",
-                resource=KSOPSScripts.ENV_SUBSTITUTION,
-                description="Substitute tenant repo URLs",
-                timeout=30,
-                context_data={
-                    "tenant_org_name": config.tenant_org_name,
-                    "tenant_repo_name": config.tenant_repo_name
-                }
             ),
             ScriptReference(
                 package="ztc.adapters.ksops.scripts",

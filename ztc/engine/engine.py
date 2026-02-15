@@ -101,8 +101,8 @@ class PlatformEngine:
         Returns:
             Ordered list of adapters respecting dependencies and phases
         """
-        # 1. Load adapters from platform.yaml (adapters are at root level)
-        adapter_configs = self.platform
+        # 1. Load adapters from platform.yaml (adapters nested under 'adapters' key)
+        adapter_configs = self.platform.get('adapters', {})
         adapters = []
         
         for adapter_name, adapter_config in adapter_configs.items():
