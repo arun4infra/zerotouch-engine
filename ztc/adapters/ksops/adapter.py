@@ -84,17 +84,16 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
             ),
             InputPrompt(
                 name="s3_endpoint",
-                prompt="S3 Endpoint URL",
+                prompt="S3 Endpoint URL (e.g., https://fsn1.your-objectstorage.com)",
                 type="string",
-                default="https://fsn1.your-objectstorage.com",
-                help_text="Hetzner S3 endpoint"
+                validation=r"^https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+                help_text="Hetzner S3 endpoint (must be valid URL)"
             ),
             InputPrompt(
                 name="s3_region",
                 prompt="S3 Region",
                 type="string",
-                default="fsn1",
-                help_text="Hetzner S3 region"
+                help_text="Auto-detected from endpoint URL"
             ),
             InputPrompt(
                 name="s3_bucket_name",
@@ -106,19 +105,22 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
                 name="github_app_id",
                 prompt="GitHub App ID",
                 type="string",
-                help_text="GitHub App ID for ArgoCD authentication"
+                validation=r"^\d+$",
+                help_text="GitHub App ID for ArgoCD authentication (numbers only)"
             ),
             InputPrompt(
                 name="github_app_installation_id",
                 prompt="GitHub App Installation ID",
                 type="string",
-                help_text="Installation ID for your organization"
+                validation=r"^\d+$",
+                help_text="Installation ID for your organization (numbers only)"
             ),
             InputPrompt(
                 name="github_app_private_key",
                 prompt="GitHub App Private Key",
                 type="password",
-                help_text="PEM-formatted private key"
+                validation=r"^-----BEGIN RSA PRIVATE KEY-----[\s\S]+-----END RSA PRIVATE KEY-----$",
+                help_text="Complete RSA private key (must start with -----BEGIN and end with -----END)"
             ),
             InputPrompt(
                 name="tenant_org_name",

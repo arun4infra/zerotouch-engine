@@ -73,7 +73,6 @@ class HetznerAdapter(PlatformAdapter):
                 name="rescue_mode_confirm",
                 prompt="Enable rescue mode? (destructive operation)",
                 type="boolean",
-                default=False,
                 help_text="Required for OS installation"
             )
         ]

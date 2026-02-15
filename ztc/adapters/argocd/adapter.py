@@ -47,7 +47,7 @@ class ArgocdAdapter(PlatformAdapter):
                 prompt="ArgoCD Version",
                 type="string",
                 default="v3.2.0",
-                help_text="ArgoCD version to install (e.g., v3.2.0)"
+                help_text="ArgoCD version to install"
             ),
             InputPrompt(
                 name="namespace",
@@ -55,42 +55,6 @@ class ArgocdAdapter(PlatformAdapter):
                 type="string",
                 default="argocd",
                 help_text="Kubernetes namespace for ArgoCD"
-            ),
-            InputPrompt(
-                name="platform_repo_url",
-                prompt="Platform Repository URL",
-                type="string",
-                validation=r"^https?://.*\.git$",
-                help_text="Git repository URL for platform manifests (e.g., https://github.com/org/repo.git)"
-            ),
-            InputPrompt(
-                name="platform_repo_branch",
-                prompt="Platform Repository Branch",
-                type="string",
-                default="main",
-                help_text="Git branch or tag to sync"
-            ),
-            InputPrompt(
-                name="overlay_environment",
-                prompt="Overlay Environment",
-                type="choice",
-                choices=["main", "preview", "dev"],
-                default="main",
-                help_text="Environment overlay to use"
-            ),
-            InputPrompt(
-                name="admin_password",
-                prompt="Admin Password",
-                type="password",
-                help_text="ArgoCD admin user password (min 8 characters)"
-            ),
-            InputPrompt(
-                name="mode",
-                prompt="Deployment Mode",
-                type="choice",
-                choices=["production", "preview"],
-                default="production",
-                help_text="Production (Talos) or Preview (Kind)"
             )
         ]
     

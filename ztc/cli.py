@@ -159,13 +159,13 @@ def _run_automatic_vacuum():
 
 @app.command()
 def init(
-    resume: bool = typer.Option(False, "--resume", help="Resume from existing platform.yaml")
+    env: str = typer.Argument("dev", help="Environment (dev/staging/prod)")
 ):
     """Initialize platform configuration via interactive prompts"""
     from ztc.commands.init import InitCommand
     
     try:
-        init_cmd = InitCommand(console, resume=resume)
+        init_cmd = InitCommand(console, env=env)
         init_cmd.execute()
         
     except ZTCError as e:

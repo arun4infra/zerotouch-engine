@@ -26,25 +26,37 @@ class InitCommand:
         "secrets_management"
     ]
     
-    def __init__(self, console: Console, resume: bool = False):
+    def __init__(self, console: Console, env: str = "dev"):
         self.console = console
-        self.resume = resume
+        self.env = env
         self.registry = AdapterRegistry()
         self.config = {}
+        self.env_vars = {}
         self.platform_yaml_path = Path("platform/platform.yaml")
+        
+        # Load environment variables from .env file
+        self._load_env_file()
+    
+    def _load_env_file(self):
+        """Load environment variables from .env.{env} file"""
+        env_file = Path(f".env.{self.env}")
+        if not env_file.exists():
+            self.console.print(f"[yellow]Warning: {env_file} not found, using defaults[/yellow]")
+            return
+        
+        with open(env_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
+                    self.env_vars[key.strip()] = value.strip()
+        
+        self.console.print(f"[green]✓[/green] Loaded environment from {env_file}")
     
     def execute(self):
         """Execute init workflow"""
         self.console.print("[bold blue]ZeroTouch Composition Engine[/bold blue]")
         self.console.print("Interactive platform configuration wizard\n")
-        
-        # Load existing config if resuming
-        if self.resume:
-            if self.platform_yaml_path.exists():
-                self.config = self._load_existing_config()
-                self.console.print("[green]✓[/green] Loaded existing platform.yaml\n")
-            else:
-                self.console.print("[yellow]No existing platform.yaml found, starting fresh[/yellow]\n")
         
         # Build selection groups from registry
         selection_groups = self._build_selection_groups()
@@ -52,9 +64,6 @@ class InitCommand:
         # Process each selection group in order
         for group in selection_groups:
             self._handle_group_selection(group)
-        
-        # Write platform.yaml
-        self._write_platform_yaml()
         
         self.console.print("\n[green]✓[/green] Platform configuration complete")
         self.console.print(f"Configuration written to: {self.platform_yaml_path}")
@@ -98,47 +107,50 @@ class InitCommand:
         """Handle adapter selection for a group"""
         group_name = group["name"]
         
-        # Skip if already configured and resuming
-        if self.resume:
-            # Check if any adapter from this group is already configured
+        # Auto-select if only one option
+        if len(group["options"]) == 1:
+            selected_adapter = group["options"][0]
+            metadata = self.registry.get_metadata(selected_adapter)
+            display_name = metadata.get("display_name", selected_adapter)
+            self.console.print(f"\n[bold cyan]{group['prompt']}[/bold cyan]")
+            self.console.print(f"[dim]Auto-selected: {display_name} (only option)[/dim]")
+        else:
+            # Display group prompt
+            self.console.print(f"\n[bold cyan]{group['prompt']}[/bold cyan]")
+            if group["help_text"]:
+                self.console.print(f"[dim]{group['help_text']}[/dim]\n")
+            
+            # Build choices with metadata
+            choices = []
             for adapter_name in group["options"]:
-                if adapter_name in self.config:
-                    self.console.print(f"[dim]Skipping {group_name} (already configured: {adapter_name})[/dim]")
-                    return
-        
-        # Display group prompt
-        self.console.print(f"\n[bold cyan]{group['prompt']}[/bold cyan]")
-        if group["help_text"]:
-            self.console.print(f"[dim]{group['help_text']}[/dim]\n")
-        
-        # Build choices with metadata
-        choices = []
-        for adapter_name in group["options"]:
-            metadata = self.registry.get_metadata(adapter_name)
-            display_name = metadata.get("display_name", adapter_name)
-            version = metadata.get("version", "unknown")
-            default_marker = " (default)" if adapter_name == group["default"] else ""
-            choices.append({
-                "name": f"{display_name} - v{version}{default_marker}",
-                "value": adapter_name
-            })
-        
-        # Get user selection with arrow keys
-        default_choice = next((c for c in choices if c["value"] == group["default"]), choices[0])
-        selected_adapter = questionary.select(
-            "Select adapter:",
-            choices=choices,
-            default=default_choice
-        ).ask()
-        
-        if not selected_adapter:
-            raise KeyboardInterrupt("Selection cancelled")
+                metadata = self.registry.get_metadata(adapter_name)
+                display_name = metadata.get("display_name", adapter_name)
+                version = metadata.get("version", "unknown")
+                default_marker = " (default)" if adapter_name == group["default"] else ""
+                choices.append({
+                    "name": f"{display_name} - v{version}{default_marker}",
+                    "value": adapter_name
+                })
+            
+            # Get user selection with arrow keys
+            default_choice = next((c for c in choices if c["value"] == group["default"]), choices[0])
+            selected_adapter = questionary.select(
+                "Select adapter:",
+                choices=choices,
+                default=default_choice
+            ).ask()
+            
+            if not selected_adapter:
+                raise KeyboardInterrupt("Selection cancelled")
         
         # Collect adapter-specific inputs
         adapter_config = self._collect_adapter_inputs(selected_adapter)
         
         # Store in config
         self.config[selected_adapter] = adapter_config
+        
+        # Write incrementally for resume support
+        self._write_platform_yaml()
     
     def _collect_adapter_inputs(self, adapter_name: str) -> Dict:
         """Collect adapter-specific configuration inputs"""
@@ -152,8 +164,68 @@ class InitCommand:
         
         config = {}
         for input_prompt in inputs:
+            # Special handling for GitHub App Private Key - load from .env.global
+            if input_prompt.name == "github_app_private_key":
+                self.console.print("\n[yellow]GitHub App Private Key must be set in .env.global file[/yellow]")
+                self.console.print("[dim]Add this line to .env.global:[/dim]")
+                self.console.print('[dim]GIT_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----"[/dim]')
+                
+                while True:
+                    ready = Confirm.ask("\nHave you added GIT_APP_PRIVATE_KEY to .env.global?")
+                    if not ready:
+                        self.console.print("[yellow]Please add the key to .env.global and try again[/yellow]")
+                        continue
+                    
+                    # Reload .env.global to get the key
+                    env_file = Path(".env.global")
+                    if not env_file.exists():
+                        self.console.print("[red].env.global file not found[/red]")
+                        continue
+                    
+                    # Parse .env.global for GIT_APP_PRIVATE_KEY (handles multi-line)
+                    key_value = None
+                    with open(env_file) as f:
+                        content = f.read()
+                        # Find GIT_APP_PRIVATE_KEY= and extract until closing quote
+                        import re
+                        match = re.search(r'GIT_APP_PRIVATE_KEY="(.*?)"', content, re.DOTALL)
+                        if match:
+                            key_value = match.group(1)
+                    
+                    if not key_value:
+                        self.console.print("[red]GIT_APP_PRIVATE_KEY not found in .env.global[/red]")
+                        continue
+                    
+                    # Validate the key format
+                    if not re.match(r"^-----BEGIN RSA PRIVATE KEY-----[\s\S]+-----END RSA PRIVATE KEY-----$", key_value, re.DOTALL):
+                        self.console.print("[red]Invalid RSA private key format[/red]")
+                        continue
+                    
+                    config[input_prompt.name] = key_value
+                    self.console.print("[green]✓[/green] Valid private key loaded from .env.global")
+                    break
+                continue
+            
             # Skip BGP ASN if BGP not enabled
             if input_prompt.name == "bgp_asn" and not config.get("bgp_enabled", False):
+                continue
+            
+            # Special handling for KSOPS s3_region - extract from s3_endpoint
+            if input_prompt.name == "s3_region" and "s3_endpoint" in config:
+                import re
+                endpoint = config["s3_endpoint"]
+                # Extract region from URL like https://fsn1.your-objectstorage.com
+                match = re.search(r'https?://([^.]+)\.', endpoint)
+                if match:
+                    region = match.group(1)
+                    config[input_prompt.name] = region
+                    self.console.print(f"[dim]{input_prompt.prompt}: {region} (auto-detected from endpoint)[/dim]")
+                    continue
+            
+            # Auto-select if default exists (skip prompt)
+            if input_prompt.default is not None:
+                config[input_prompt.name] = input_prompt.default
+                self.console.print(f"[dim]{input_prompt.prompt}: {input_prompt.default} (auto-selected)[/dim]")
                 continue
             
             # Special handling for Talos nodes - iterate over Hetzner IPs
@@ -168,7 +240,12 @@ class InitCommand:
                 for ip in server_ips:
                     self.console.print(f"\n[cyan]Configure server: {ip}[/cyan]")
                     
-                    name = Prompt.ask(f"Server name for {ip}")
+                    while True:
+                        name = Prompt.ask(f"Server name for {ip} (e.g., cp01, worker01)").strip()
+                        if name:
+                            break
+                        self.console.print("[red]Server name is required[/red]")
+                    
                     role = questionary.select(
                         f"Role for {ip}:",
                         choices=["controlplane", "worker"]
@@ -191,6 +268,22 @@ class InitCommand:
                 while True:
                     value = Prompt.ask(input_prompt.prompt, password=True)
                     if value:
+                        # Only strip leading/trailing whitespace, preserve internal newlines for keys
+                        value = value.strip()
+                        # Validate password fields if pattern provided
+                        if input_prompt.validation:
+                            import re
+                            # For RSA keys, accept both single-line and multi-line format
+                            if "RSA PRIVATE KEY" in input_prompt.validation:
+                                # Normalize: if single line, add newlines after headers
+                                if "\\n" not in value and "\n" not in value:
+                                    # Single-line format - add newlines
+                                    value = value.replace("-----BEGIN RSA PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----\n")
+                                    value = value.replace("-----END RSA PRIVATE KEY-----", "\n-----END RSA PRIVATE KEY-----")
+                            
+                            if not re.match(input_prompt.validation, value, re.DOTALL):
+                                self.console.print(f"[red]Invalid format. {input_prompt.help_text}[/red]")
+                                continue
                         break
                     self.console.print("[red]This field is required[/red]")
             elif input_prompt.type == "json":
@@ -214,6 +307,7 @@ class InitCommand:
                     
                     value = Prompt.ask(prompt_text, default=str(input_prompt.default) if input_prompt.default else None)
                     if value:
+                        value = value.strip()
                         # Validate against regex pattern if provided (before parsing)
                         if input_prompt.validation:
                             import re
@@ -262,4 +356,4 @@ class InitCommand:
         self.platform_yaml_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(self.platform_yaml_path, "w") as f:
-            yaml.dump(platform_data, f, default_flow_style=False, sort_keys=False)
+            yaml.dump(platform_data, f, default_flow_style=False, sort_keys=False, indent=2)

@@ -84,7 +84,7 @@ class TalosAdapter(PlatformAdapter):
             ),
             InputPrompt(
                 name="cluster_name",
-                prompt="Cluster name",
+                prompt="Cluster name (e.g., kube-prod)",
                 type="string",
                 validation=r"^[a-z0-9-]+$",
                 help_text="Alphanumeric + hyphens only"

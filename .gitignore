@@ -7,3 +7,4 @@ temp
 codebase.md
 platform/generated
 .env.dev
+.env.global
