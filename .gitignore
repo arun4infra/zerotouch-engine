@@ -6,3 +6,4 @@ test-binary-workspace
 temp
 codebase.md
 platform/generated
+.env.dev
