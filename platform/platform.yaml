@@ -2,40 +2,35 @@ version: '1.0'
 adapters:
   hetzner:
     version: v1.0.0
-    api_token: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     server_ips:
-    - 46.62.218.181
+      - 46.62.218.181
     rescue_mode_confirm: true
+  github:
+    github_app_id: '2870814'
+    github_app_installation_id: '110294723'
+    tenant_repo_url: https://github.com/kiroagent00-debug/zerotouch-tenant
+  ksops:
+    s3_endpoint: https://fsn1.your-objectstorage.com
+    s3_region: fsn1
+    s3_bucket_name: tenant-bucket
   talos:
     version: v1.11.5
     factory_image_id: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
-    cluster_name: fd
+    cluster_name: cl1
     cluster_endpoint: 46.62.218.181:6443
     nodes:
-    - name: cp01
-      ip: 46.62.218.181
-      role: controlplane
+      - name: cp01
+          ip: 46.62.218.181
+          role: controlplane
   cilium:
     version: v1.18.5
     bgp_enabled: false
   argocd:
     version: v3.2.0
     namespace: argocd
-    platform_repo_url: https://github.com/test-org/platform.git
-    platform_repo_branch: main
-    overlay_environment: main
-    admin_password: test-password-123
-    mode: production
   crossplane:
     version: 1.16.0
     namespace: crossplane-system
     enable_composition_revisions: true
     mode: production
-    providers:
-    - kubernetes
-  ksops:
-    s3_access_key: frgdg
-    s3_secret_key: fsdfsdf
-    s3_endpoint: https://fsn1.your-objectstorage.com
-    s3_region: fsn1
-    s3_bucket_name: fsf
+    providers: kubernetes

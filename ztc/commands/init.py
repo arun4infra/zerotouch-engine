@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Dict, List, Optional
-import yaml
+from ruamel.yaml import YAML
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -37,6 +37,10 @@ class InitCommand:
         self.secrets_cache = {}  # Store secrets separately from config
         self.env_vars = {}
         self.platform_yaml_path = Path("platform/platform.yaml")
+        self.yaml = YAML()
+        self.yaml.default_flow_style = False
+        self.yaml.preserve_quotes = True
+        self.yaml.indent(mapping=2, sequence=2, offset=0)
         
         # Load environment variables from .env file
         self._load_env_file()
@@ -75,7 +79,7 @@ class InitCommand:
     def _load_existing_config(self) -> Dict:
         """Load existing platform.yaml"""
         with open(self.platform_yaml_path) as f:
-            data = yaml.safe_load(f)
+            data = self.yaml.load(f)
         return data.get("adapters", {})
     
     def _build_selection_groups(self) -> List[Dict]:
@@ -409,7 +413,7 @@ class InitCommand:
         self.platform_yaml_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(self.platform_yaml_path, "w") as f:
-            yaml.dump(platform_data, f, default_flow_style=False, sort_keys=False, indent=2)
+            self.yaml.dump(platform_data, f)
     
     def _execute_init_scripts(self, adapter_name: str):
         """Execute init scripts for an adapter after configuration collection
