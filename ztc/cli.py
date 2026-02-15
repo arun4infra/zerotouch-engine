@@ -162,13 +162,16 @@ def init(
     resume: bool = typer.Option(False, "--resume", help="Resume from existing platform.yaml")
 ):
     """Initialize platform configuration via interactive prompts"""
-    console.print("[bold blue]ZeroTouch Composition Engine[/bold blue]")
-    console.print("Interactive platform configuration wizard\n")
+    from ztc.commands.init import InitCommand
     
-    if resume:
-        console.print("[yellow]Resume mode not yet implemented[/yellow]")
-    else:
-        console.print("[yellow]Init workflow not yet implemented[/yellow]")
+    try:
+        init_cmd = InitCommand(console, resume=resume)
+        init_cmd.execute()
+        
+    except ZTCError as e:
+        handle_ztc_error(e)
+    except Exception as e:
+        handle_unexpected_error(e)
 
 
 @app.command()

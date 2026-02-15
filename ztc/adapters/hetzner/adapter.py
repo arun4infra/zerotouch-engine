@@ -66,6 +66,7 @@ class HetznerAdapter(PlatformAdapter):
                 name="server_ips",
                 prompt="Server IPs (comma-separated)",
                 type="string",
+                validation=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$",
                 help_text="IPv4 addresses of bare-metal servers"
             ),
             InputPrompt(

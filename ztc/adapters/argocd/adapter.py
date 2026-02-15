@@ -60,6 +60,7 @@ class ArgocdAdapter(PlatformAdapter):
                 name="platform_repo_url",
                 prompt="Platform Repository URL",
                 type="string",
+                validation=r"^https?://.*\.git$",
                 help_text="Git repository URL for platform manifests (e.g., https://github.com/org/repo.git)"
             ),
             InputPrompt(
