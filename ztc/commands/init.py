@@ -40,7 +40,8 @@ class InitCommand:
         self.yaml = YAML()
         self.yaml.default_flow_style = False
         self.yaml.preserve_quotes = True
-        self.yaml.indent(mapping=2, sequence=2, offset=0)
+        self.yaml.width = 4096  # Prevent line wrapping for long values
+        self.yaml.indent(mapping=2, sequence=2, offset=0)  # offset=0 for proper list item alignment
         
         # Load environment variables from .env file
         self._load_env_file()
@@ -73,8 +74,13 @@ class InitCommand:
         for group in selection_groups:
             self._handle_group_selection(group)
         
+        # Persist secrets to ~/.ztc/secrets
+        self._write_secrets_file()
+        
         self.console.print("\n[green]✓ Init phase complete[/green]")
         self.console.print(f"Configuration written to: {self.platform_yaml_path}")
+        if self.secrets_cache:
+            self.console.print(f"Secrets written to: ~/.ztc/secrets")
     
     def _load_existing_config(self) -> Dict:
         """Load existing platform.yaml"""
@@ -414,6 +420,38 @@ class InitCommand:
         
         with open(self.platform_yaml_path, "w") as f:
             self.yaml.dump(platform_data, f)
+    
+    def _write_secrets_file(self):
+        """Write secrets to ~/.ztc/secrets file (AWS CLI pattern)"""
+        if not self.secrets_cache:
+            return
+        
+        import os
+        import stat
+        
+        # Create ~/.ztc directory
+        secrets_dir = Path.home() / ".ztc"
+        secrets_dir.mkdir(mode=0o700, exist_ok=True)
+        
+        secrets_file = secrets_dir / "secrets"
+        
+        # Write secrets in INI format (like AWS credentials)
+        with open(secrets_file, "w") as f:
+            for adapter_name, secrets in self.secrets_cache.items():
+                f.write(f"[{adapter_name}]\n")
+                for key, value in secrets.items():
+                    # Handle multi-line values (like RSA keys)
+                    if "\n" in str(value):
+                        # Base64 encode multi-line values for safe storage
+                        import base64
+                        encoded = base64.b64encode(value.encode()).decode()
+                        f.write(f"{key} = base64:{encoded}\n")
+                    else:
+                        f.write(f"{key} = {value}\n")
+                f.write("\n")
+        
+        # Set file permissions to 600 (user read/write only)
+        os.chmod(secrets_file, stat.S_IRUSR | stat.S_IWUSR)
     
     def _execute_init_scripts(self, adapter_name: str):
         """Execute init scripts for an adapter after configuration collection

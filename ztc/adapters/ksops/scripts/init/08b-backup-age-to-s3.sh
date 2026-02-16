@@ -6,7 +6,7 @@ set -euo pipefail
 # Requires AGE_PRIVATE_KEY environment variable (from 08b-generate-age-keys.sh)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELPERS_DIR="$SCRIPT_DIR/../helpers"
+HELPERS_DIR="$SCRIPT_DIR/../shared"
 
 # Colors
 RED='\033[0;31m'

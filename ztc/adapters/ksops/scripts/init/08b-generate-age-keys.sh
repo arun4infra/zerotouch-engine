@@ -6,7 +6,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELPERS_DIR="$SCRIPT_DIR/../helpers"
+HELPERS_DIR="$SCRIPT_DIR/../shared"
 
 # Colors for output
 RED='\033[0;31m'

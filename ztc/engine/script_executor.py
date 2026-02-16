@@ -176,17 +176,21 @@ Script Path: {result.script_path}
             print(f"Warning: Failed to write execution log: {e}")
 
     def _copy_scripts_recursive(self, source_dir, dest_dir: Path):
-        """Recursively copy all .sh files preserving directory structure
+        """Recursively copy all script files preserving directory structure
         
         Args:
             source_dir: Source directory (importlib.resources traversable)
             dest_dir: Destination directory path
         """
         for item in source_dir.iterdir():
-            if item.is_file() and item.name.endswith('.sh'):
+            if item.is_file() and (item.name.endswith('.sh') or item.name.endswith('.py') or item.name.endswith('.j2')):
                 dest_file = dest_dir / item.name
                 dest_file.write_text(item.read_text())
-                dest_file.chmod(0o755)
+                # Only set executable for scripts, not templates
+                if item.name.endswith('.sh') or item.name.endswith('.py'):
+                    dest_file.chmod(0o755)
+                else:
+                    dest_file.chmod(0o644)
             elif item.is_dir():
                 # Create subdirectory and recurse
                 sub_dest = dest_dir / item.name

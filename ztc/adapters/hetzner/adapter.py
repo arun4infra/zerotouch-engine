@@ -18,11 +18,12 @@ from ztc.interfaces.capabilities import CloudInfrastructureCapability
 class HetznerConfig(BaseModel):
     """Hetzner adapter configuration with validation"""
     version: str
-    api_token: SecretStr = Field(..., description="Hetzner API token (64-char hex)")
+    hcloud_api_token: SecretStr = Field(..., description="Hetzner API token (64-char hex)")
+    hetzner_dns_token: SecretStr = Field(..., description="Hetzner DNS API token (64-char hex)")
     server_ips: List[str] = Field(..., description="List of server IPv4 addresses")
     rescue_mode_confirm: bool = Field(False, description="Confirmation for rescue mode activation")
     
-    @field_validator("api_token")
+    @field_validator("hcloud_api_token", "hetzner_dns_token")
     @classmethod
     def validate_token_length(cls, v: SecretStr) -> SecretStr:
         """Validate token is 64 characters"""
@@ -35,7 +36,7 @@ class HetznerConfig(BaseModel):
         json_schema_extra = {
             "example": {
                 "version": "v1.0.0",
-                "api_token": "a" * 64,
+                "hcloud_api_token": "a" * 64,
                 "server_ips": ["46.62.218.181", "95.216.151.243"],
                 "rescue_mode_confirm": True
             }
@@ -76,10 +77,16 @@ class HetznerAdapter(PlatformAdapter):
                 default="v1.0.0"
             ),
             InputPrompt(
-                name="api_token",
+                name="hcloud_api_token",
                 prompt="Hetzner API token (HCLOUD_TOKEN)",
                 type="password",
                 help_text="64-character hex string from Hetzner Cloud Console"
+            ),
+            InputPrompt(
+                name="hetzner_dns_token",
+                prompt="Hetzner DNS API token",
+                type="password",
+                help_text="64-character hex string for DNS management (cert-manager, external-dns)"
             ),
             InputPrompt(
                 name="server_ips",
@@ -116,10 +123,13 @@ class HetznerAdapter(PlatformAdapter):
         """Generate Hetzner adapter output with capability data and secrets"""
         config = HetznerConfig(**self.config)
         
+        # Extract token value from SecretStr
+        token_value = config.hcloud_api_token.get_secret_value()
+        
         # Query Hetzner API for server IDs
         server_ids = {}
         for ip in config.server_ips:
-            server_id = await self._get_server_id_by_ip(ip, config.api_token)
+            server_id = await self._get_server_id_by_ip(ip, token_value)
             server_ids[ip] = server_id
         
         # Create capability data
@@ -140,14 +150,14 @@ class HetznerAdapter(PlatformAdapter):
             manifests[f"{secrets_path}/hcloud.secret.yaml"] = self._render_secret(
                 name="hcloud",
                 namespace="kube-system",
-                string_data={"token": config.api_token}
+                string_data={"token": token_value}
             )
             
             # External DNS Hetzner Secret
             manifests[f"{secrets_path}/external-dns-hetzner.secret.yaml"] = self._render_secret(
                 name="external-dns-hetzner",
                 namespace="kube-system",
-                string_data={"HETZNER_DNS_TOKEN": config.api_token}
+                string_data={"HETZNER_DNS_TOKEN": token_value}
             )
             
             # KSOPS Generator
@@ -167,7 +177,7 @@ generators:
             manifests=manifests,
             stages=[],
             env_vars={
-                "HCLOUD_TOKEN": config.api_token,
+                "HCLOUD_TOKEN": token_value,
                 "SERVER_IPS": ",".join(config.server_ips)
             },
             capabilities={

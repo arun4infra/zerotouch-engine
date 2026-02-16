@@ -3,7 +3,7 @@ adapters:
   hetzner:
     version: v1.0.0
     server_ips:
-      - 46.62.218.181
+    - 46.62.218.181
     rescue_mode_confirm: true
   github:
     github_app_id: '2870814'
@@ -12,16 +12,16 @@ adapters:
   ksops:
     s3_endpoint: https://fsn1.your-objectstorage.com
     s3_region: fsn1
-    s3_bucket_name: tenant-bucket
+    s3_bucket_name: tenant-bucket2
   talos:
     version: v1.11.5
     factory_image_id: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
-    cluster_name: cl1
+    cluster_name: cln1
     cluster_endpoint: 46.62.218.181:6443
     nodes:
-      - name: cp01
-        ip: 46.62.218.181
-        role: controlplane
+    - name: cp01
+      ip: 46.62.218.181
+      role: controlplane
   cilium:
     version: v1.18.5
     bgp_enabled: false

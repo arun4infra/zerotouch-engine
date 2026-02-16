@@ -223,6 +223,7 @@ def render(
         console.print("[green]✓[/green] Render completed successfully")
         console.print(f"Artifacts written to: platform/generated/")
         console.print(f"Lock file: platform/lock.json")
+        console.print(f"[dim]Logs: .zerotouch-cache/render-logs/[/dim]")
         
     except ZTCError as e:
         handle_ztc_error(e)

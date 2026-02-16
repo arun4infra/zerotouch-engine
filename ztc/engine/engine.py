@@ -33,6 +33,7 @@ class PlatformEngine:
         """
         self.platform_yaml = platform_yaml
         self.platform = self.load_platform(platform_yaml)
+        self.secrets = self.load_secrets()  # Load secrets from ~/.ztc/secrets
         self.adapter_registry = AdapterRegistry()
         self.debug_mode = debug
         self.context = PlatformContext()
@@ -61,6 +62,40 @@ class PlatformEngine:
         
         with open(platform_yaml, 'r') as f:
             return yaml.safe_load(f)
+    
+    def load_secrets(self) -> Dict[str, Dict[str, str]]:
+        """Load secrets from ~/.ztc/secrets file (AWS CLI pattern)
+        
+        Returns:
+            Dict mapping adapter names to their secrets
+        """
+        secrets_file = Path.home() / ".ztc" / "secrets"
+        
+        if not secrets_file.exists():
+            return {}
+        
+        try:
+            import configparser
+            import base64
+            
+            config = configparser.ConfigParser()
+            config.read(secrets_file)
+            
+            secrets = {}
+            for section in config.sections():
+                secrets[section] = {}
+                for key, value in config.items(section):
+                    # Decode base64-encoded values (multi-line secrets)
+                    if value.startswith("base64:"):
+                        decoded = base64.b64decode(value[7:]).decode()
+                        secrets[section][key] = decoded
+                    else:
+                        secrets[section][key] = value
+            
+            return secrets
+        except Exception:
+            # Gracefully handle corrupted or invalid secrets file
+            return {}
     
     def _create_shared_jinja_env(self) -> Environment:
         """Create shared Jinja2 environment with namespaced adapter templates
@@ -114,8 +149,13 @@ class PlatformEngine:
             if not isinstance(adapter_config, dict):
                 continue
             
+            # Merge secrets into adapter config
+            merged_config = adapter_config.copy()
+            if adapter_name in self.secrets:
+                merged_config.update(self.secrets[adapter_name])
+            
             try:
-                adapter_instance = self.adapter_registry.get_adapter(adapter_name, adapter_config)
+                adapter_instance = self.adapter_registry.get_adapter(adapter_name, merged_config)
                 # Set jinja_env if adapter supports it
                 if hasattr(adapter_instance, '_jinja_env'):
                     adapter_instance._jinja_env = self.jinja_env
@@ -153,14 +193,39 @@ class PlatformEngine:
         Raises:
             Exception: Any error during rendering (workspace preserved if debug=True)
         """
+        from datetime import datetime
+        import json
+        
+        # Setup logging
+        log_dir = Path(".zerotouch-cache/render-logs")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        log_file = log_dir / f"{timestamp}-render.log"
+        
+        def log(message: str):
+            """Append message to log file"""
+            try:
+                with open(log_file, "a") as f:
+                    f.write(f"[{datetime.now().isoformat()}] {message}\n")
+            except Exception:
+                pass  # Don't fail render if logging fails
+        
+        log("=== Render Started ===")
+        log(f"Platform YAML: {self.platform_yaml}")
+        log(f"Partial render: {partial if partial else 'Full render'}")
+        log(f"Debug mode: {self.debug_mode}")
+        
         # 1. Resolve adapter dependencies
         if progress_callback:
             progress_callback("Resolving adapter dependencies...")
+        log("Resolving adapter dependencies...")
         adapters = self.resolve_adapters(partial)
+        log(f"Resolved {len(adapters)} adapters: {[a.name for a in adapters]}")
         
         # 2. Create workspace
         if progress_callback:
             progress_callback("Creating workspace...")
+        log("Creating workspace...")
         workspace = Path(".zerotouch-cache/workspace")
         try:
             # Clean existing workspace
@@ -170,60 +235,89 @@ class PlatformEngine:
             
             generated_dir = workspace / "generated"
             generated_dir.mkdir(parents=True, exist_ok=True)
+            log(f"Workspace created: {workspace}")
             
             # 3. Render adapters with immutable context snapshots
             for i, adapter in enumerate(adapters, 1):
                 if progress_callback:
                     progress_callback(f"Rendering {adapter.name} ({i}/{len(adapters)})...")
                 
-                # Create immutable snapshot for adapter
-                snapshot = self.context.snapshot()
+                log(f"Rendering adapter: {adapter.name} ({i}/{len(adapters)})")
                 
-                # Adapter renders with read-only context
-                output = await adapter.render(snapshot)
-                
-                # Write adapter output to workspace
-                self.write_adapter_output(generated_dir, adapter.name, output)
-                
-                # Engine updates mutable context
-                self.context.register_output(adapter.name, output)
+                try:
+                    # Create immutable snapshot for adapter
+                    snapshot = self.context.snapshot()
+                    
+                    # Adapter renders with read-only context
+                    output = await adapter.render(snapshot)
+                    
+                    # Write adapter output to workspace
+                    self.write_adapter_output(generated_dir, adapter.name, output)
+                    
+                    # Engine updates mutable context
+                    self.context.register_output(adapter.name, output)
+                    
+                    log(f"✓ {adapter.name} rendered successfully - {len(output.manifests)} manifests")
+                except Exception as e:
+                    log(f"✗ {adapter.name} failed: {str(e)}")
+                    raise
             
             # 4. Generate pipeline YAML from adapter stages
             if progress_callback:
                 progress_callback("Generating pipeline YAML...")
+            log("Generating pipeline YAML...")
             self.generate_pipeline_yaml(adapters, workspace)
+            log("✓ Pipeline YAML generated")
             
             # 5. Write debug scripts for observability
             if progress_callback:
                 progress_callback("Writing debug scripts...")
+            log("Writing debug scripts...")
             self.write_debug_scripts(adapters, generated_dir)
+            log("✓ Debug scripts written")
             
             # 6. Validate generated artifacts
             if progress_callback:
                 progress_callback("Validating artifacts...")
+            log("Validating artifacts...")
             self.validate_artifacts(generated_dir)
+            log("✓ Artifacts validated")
             
             # 7. Atomic swap to platform/generated
             if progress_callback:
                 progress_callback("Swapping generated artifacts...")
+            log("Swapping generated artifacts...")
             self.atomic_swap_generated(workspace)
+            log("✓ Artifacts swapped to platform/generated")
             
             # 8. Generate lock file
             if progress_callback:
                 progress_callback("Generating lock file...")
+            log("Generating lock file...")
             artifacts_hash = self.hash_directory(Path("platform/generated"))
             self.generate_lock_file(artifacts_hash, adapters)
+            log(f"✓ Lock file generated - hash: {artifacts_hash[:16]}...")
             
             # 9. Cleanup workspace
             if progress_callback:
                 progress_callback("Cleaning up workspace...")
+            log("Cleaning up workspace...")
             if workspace.exists():
                 shutil.rmtree(workspace)
+            log("✓ Workspace cleaned")
+            log("=== Render Completed Successfully ===")
         
         except Exception as e:
+            log(f"=== Render Failed ===")
+            log(f"Error: {str(e)}")
+            log(f"Error type: {type(e).__name__}")
+            
             # Cleanup workspace on failure unless debug mode
             if not self.debug_mode and workspace.exists():
                 shutil.rmtree(workspace)
+                log("Workspace cleaned (non-debug mode)")
+            else:
+                log(f"Workspace preserved at: {workspace}")
             raise
         
         finally:
