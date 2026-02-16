@@ -20,8 +20,8 @@ adapters:
     cluster_endpoint: 46.62.218.181:6443
     nodes:
       - name: cp01
-          ip: 46.62.218.181
-          role: controlplane
+        ip: 46.62.218.181
+        role: controlplane
   cilium:
     version: v1.18.5
     bgp_enabled: false
