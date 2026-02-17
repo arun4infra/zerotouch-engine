@@ -1,0 +1,46 @@
+{#
+Source: zerotouch-platform/bootstrap/argocd/base/01-crossplane.yaml
+Migration: Converted static YAML to Jinja2 template with mode-specific tolerations
+#}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crossplane-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    chart: crossplane
+    repoURL: https://charts.crossplane.io/stable
+    targetRevision: {{ version }}
+    helm:
+{% if enable_composition_revisions %}
+      parameters:
+        - name: "args[0]"
+          value: "--enable-composition-revisions"
+{% endif %}
+      values: |
+{% if mode == "production" %}
+        # Allow Crossplane to run on control plane nodes
+        tolerations:
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+{% endif %}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 10s
+        maxDuration: 5m

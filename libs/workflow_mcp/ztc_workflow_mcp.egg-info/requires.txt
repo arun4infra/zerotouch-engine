@@ -1,0 +1,4 @@
+ztc-workflow-engine
+mcp<2.0.0,>=1.26.0
+pydantic<3.0.0,>=2.0.0
+aiofiles<25.0.0,>=24.0.0

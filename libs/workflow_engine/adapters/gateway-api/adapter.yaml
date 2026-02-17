@@ -1,0 +1,24 @@
+name: gateway-api
+version: 1.0.0
+phase: runtime
+selection_group: middleware
+is_default: false
+group_prompt: "Select Gateway API infrastructure"
+group_help: "Gateway API infrastructure with CRDs, foundation, class, and config"
+provides:
+  - capability: gateway-api
+    version: v1.0
+requires:
+  - capability: gitops-platform
+    version: v1.0
+  - capability: kubernetes-api
+    version: v1.0
+  - capability: cni-artifacts
+    version: v1.0
+supported_versions:
+  - v1.4.1
+  - v1.4.0
+  - v1.3.0
+default_version: v1.4.1
+config_schema: schema.json
+output_schema: output-schema.json

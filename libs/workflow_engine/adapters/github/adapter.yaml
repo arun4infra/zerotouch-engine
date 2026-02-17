@@ -1,0 +1,14 @@
+name: github
+version: 1.0.0
+phase: git_provider
+selection_group: git_provider
+is_default: true
+group_prompt: "Select Git provider"
+group_help: "Git provider for ArgoCD authentication and tenant repository access"
+provides:
+  - capability: git-credentials
+    version: v1.0
+requires: []
+description: |
+  GitHub Git provider adapter for ArgoCD authentication.
+  Manages GitHub App credentials and tenant repository configuration.

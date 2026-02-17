@@ -1,0 +1,93 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/04-gateway-config.yaml #}
+{# Migration: Converted to Jinja2 template with platform_repo_url and platform_repo_branch from context #}
+# Wave 4: Gateway Foundation - CiliumGatewayClassConfig + RBAC
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-foundation
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  source:
+    repoURL: {{ platform_repo_url }}
+    targetRevision: {{ platform_repo_branch }}
+    path: platform/generated/gateway-api/foundation
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        maxDuration: 5m
+---
+# Wave 5: GatewayClass - References CiliumGatewayClassConfig
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-class
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  project: default
+  source:
+    repoURL: {{ platform_repo_url }}
+    targetRevision: {{ platform_repo_branch }}
+    path: platform/generated/gateway-api/class
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        maxDuration: 5m
+---
+# Wave 6: Gateway + Certificates
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+spec:
+  project: default
+  source:
+    repoURL: {{ platform_repo_url }}
+    targetRevision: {{ platform_repo_branch }}
+    path: platform/generated/gateway-api/config
+  destination:
+    server: https://kubernetes.default.svc
+  ignoreDifferences:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      jsonPointers:
+        - /spec/infrastructure/annotations
+        - /spec/listeners/1/tls/certificateRefs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        maxDuration: 5m

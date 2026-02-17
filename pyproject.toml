@@ -19,11 +19,17 @@ cryptography = "^42.0.0"
 questionary = "^2.1.1"
 requests = "^2.31.0"
 pyjwt = "^2.8.0"
+aiofiles = "^24.0.0"
+mcp = "^1.26.0"
+
+# Note: libs/cli, libs/workflow_engine, and libs/workflow_mcp are now independent packages
+# Install them separately or use workspace configuration
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-asyncio = "^1.3.0"
 pyinstaller = "^6.18.0"
+hypothesis = "^6.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]

@@ -1,0 +1,36 @@
+---
+# Cilium CNI Manifests - Version {{ version }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-config
+  namespace: kube-system
+data:
+  version: "{{ version }}"
+{% if bgp_enabled %}
+  bgp-enabled: "true"
+  bgp-asn: "{{ bgp_asn }}"
+{% else %}
+  bgp-enabled: "false"
+{% endif %}
+---
+# Gateway API CRDs embedded
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gateways.gateway.networking.k8s.io
+spec:
+  group: gateway.networking.k8s.io
+  names:
+    kind: Gateway
+    plural: gateways
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true

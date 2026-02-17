@@ -1,0 +1,55 @@
+Metadata-Version: 2.4
+Name: ztc-workflow-engine
+Version: 0.1.0
+Summary: ZTC Workflow Engine - Core workflow orchestration and execution
+License: MIT
+Project-URL: Repository, https://github.com/zerotouch/ztc
+Project-URL: Issues, https://github.com/zerotouch/ztc/issues
+Keywords: workflow,orchestration,kubernetes,gitops,automation
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: jinja2<4.0.0,>=3.0.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.0
+Requires-Dist: ruamel-yaml<0.19.0,>=0.18.0
+Requires-Dist: aiohttp<4.0.0,>=3.9.0
+Requires-Dist: cryptography<43.0.0,>=42.0.0
+Requires-Dist: requests<3.0.0,>=2.31.0
+Requires-Dist: pyjwt<3.0.0,>=2.8.0
+Requires-Dist: aiofiles<25.0.0,>=24.0.0
+
+# ZTC Workflow Engine
+
+Core workflow orchestration and execution engine for ZeroTouch Composition.
+
+## Features
+
+- Workflow parsing and validation
+- Adapter-based architecture
+- Secret management integration
+- Storage abstraction layer
+- Async execution support
+
+## Installation
+
+```bash
+pip install ztc-workflow-engine
+```
+
+## Usage
+
+```python
+from workflow_engine import WorkflowEngine
+
+engine = WorkflowEngine()
+# Use the engine
+```

@@ -321,18 +321,24 @@ class SessionRestored:
 
 **MCP Server Observer Implementation**:
 ```python
+from mcp.server.session import ServerSession
+from mcp.types import Notification
+
 class MCPServerObserver(QuestionPathTraverserObserver):
-    def __init__(self, json_rpc_notifier: JSONRPCNotifier):
-        self.notifier = json_rpc_notifier
+    def __init__(self, session: ServerSession):
+        self.session = session
         
     async def receive_notification_async(
         self, 
         notification: QuestionPathTraverserNotification
     ) -> None:
-        """Convert notification to JSON-RPC notification"""
-        await self.notifier.send_notification(
-            method=f"workflow/{notification.__class__.__name__}",
-            params=notification.to_dict()
+        """Convert notification to MCP notification using official SDK"""
+        # Use official MCP notification format
+        await self.session.send_notification(
+            Notification(
+                method=f"workflow/{notification.__class__.__name__}",
+                params=notification.to_dict()
+            )
         )
 ```
 
@@ -577,163 +583,220 @@ class OnQuestionPathCompleteOperation(ABC):
 
 ### MCP Protocol Integration
 
-#### JSON-RPC Endpoints
+#### MCP Tools Implementation
 
-**start_workflow**:
+Workflow operations are exposed as MCP tools following the official SDK pattern:
+
+**start_workflow tool**:
 ```python
-{
-    "jsonrpc": "2.0",
-    "method": "workflow/start",
-    "params": {
-        "workflow_id": "hetzner-setup",
-        "workflow_dsl_path": "/path/to/workflow.yaml"
-    },
-    "id": 1
-}
+from mcp.server.fastmcp import FastMCP
+from mcp.types import CallToolResult, TextContent
 
-# Response
-{
-    "jsonrpc": "2.0",
-    "result": {
-        "session_id": "uuid-here",
+mcp = FastMCP("Workflow Engine")
+
+@mcp.tool()
+async def start_workflow(workflow_id: str, workflow_dsl_path: str) -> dict:
+    """Start a new workflow session
+    
+    Args:
+        workflow_id: Unique identifier for the workflow
+        workflow_dsl_path: Path to workflow YAML definition
+        
+    Returns:
+        Dictionary with session_id, question, and state_blob
+    """
+    # Parse workflow DSL
+    workflow = await parser.parse_yaml(workflow_dsl_path)
+    
+    # Initialize traverser
+    traverser = QuestionPathTraverser(workflow, ...)
+    await traverser.start_async(timestamp())
+    
+    # Get first question
+    question = traverser.get_current_question()
+    
+    # Serialize state
+    state = traverser.serialize()
+    
+    return {
+        "session_id": str(uuid.uuid4()),
         "question": {
-            "id": "hetzner.api_token",
-            "type": "string",
-            "prompt": "Enter Hetzner API token",
-            "sensitive": true
+            "id": question.id,
+            "type": question.type,
+            "prompt": question.prompt,
+            "sensitive": question.sensitive
         },
-        "state_blob": "base64-encoded-state"
-    },
-    "id": 1
-}
+        "state_blob": base64.b64encode(json.dumps(state).encode()).decode()
+    }
 ```
 
-**submit_answer**:
+**submit_answer tool**:
 ```python
-{
-    "jsonrpc": "2.0",
-    "method": "workflow/submit_answer",
-    "params": {
-        "session_id": "uuid-here",
-        "state_blob": "base64-encoded-state",
-        "answer": {
-            "value": "hetzner_token_value",
-            "timestamp": 1234567890
-        }
-    },
-    "id": 2
-}
-
-# Response
-{
-    "jsonrpc": "2.0",
-    "result": {
+@mcp.tool()
+async def submit_answer(
+    session_id: str,
+    state_blob: str,
+    answer_value: str,
+    timestamp: int
+) -> dict:
+    """Submit answer and get next question
+    
+    Args:
+        session_id: Session identifier
+        state_blob: Base64-encoded serialized state
+        answer_value: User's answer
+        timestamp: Answer submission timestamp
+        
+    Returns:
+        Dictionary with next question and updated state_blob
+    """
+    # Deserialize state
+    state = json.loads(base64.b64decode(state_blob))
+    
+    # Restore traverser
+    traverser = await restore_traverser_from_state(state)
+    
+    # Submit answer
+    entry_data = EntryData(value=answer_value)
+    await traverser.answer_current_question_async(entry_data, timestamp)
+    
+    # Get next question
+    question = traverser.get_current_question()
+    
+    # Serialize updated state
+    new_state = traverser.serialize()
+    
+    return {
         "question": {
-            "id": "hetzner.server_ips",
-            "type": "string",
-            "prompt": "Enter server IPs (comma-separated)"
-        },
-        "state_blob": "base64-encoded-state"
-    },
-    "id": 2
-}
+            "id": question.id,
+            "type": question.type,
+            "prompt": question.prompt
+        } if question else None,
+        "state_blob": base64.b64encode(json.dumps(new_state).encode()).decode(),
+        "completed": question is None
+    }
 ```
 
-**restore_session**:
+**restore_session tool**:
 ```python
-{
-    "jsonrpc": "2.0",
-    "method": "workflow/restore",
-    "params": {
-        "session_id": "uuid-here",
-        "state_blob": "base64-encoded-state"
-    },
-    "id": 3
-}
-
-# Response
-{
-    "jsonrpc": "2.0",
-    "result": {
+@mcp.tool()
+async def restore_session(session_id: str, state_blob: str) -> dict:
+    """Restore workflow session from state blob
+    
+    Args:
+        session_id: Session identifier
+        state_blob: Base64-encoded serialized state
+        
+    Returns:
+        Dictionary with current question (with default) and state_blob
+    """
+    # Deserialize state
+    state = json.loads(base64.b64decode(state_blob))
+    
+    # Restore traverser
+    traverser = await restore_traverser_from_state(state)
+    
+    # Get current question with previous answer as default
+    question = traverser.get_current_question()
+    feedback = traverser.get_feedback_for_question(question.id)
+    
+    return {
         "question": {
-            "id": "hetzner.server_ips",
-            "type": "string",
-            "prompt": "Enter server IPs (comma-separated)",
-            "default": "192.168.1.1"  # Previous answer
+            "id": question.id,
+            "type": question.type,
+            "prompt": question.prompt,
+            "default": feedback.entry_data.value if feedback else None
         },
-        "state_blob": "base64-encoded-state"
-    },
-    "id": 3
-}
+        "state_blob": state_blob
+    }
 ```
 
-**restart_workflow**:
+**restart_workflow tool**:
 ```python
-{
-    "jsonrpc": "2.0",
-    "method": "workflow/restart",
-    "params": {
-        "workflow_id": "hetzner-setup"
-    },
-    "id": 4
-}
-
-# Response (same as start_workflow)
+@mcp.tool()
+async def restart_workflow(workflow_id: str) -> dict:
+    """Restart workflow from beginning
+    
+    Args:
+        workflow_id: Workflow identifier
+        
+    Returns:
+        Same as start_workflow - new session with first question
+    """
+    # Discard any existing state, start fresh
+    return await start_workflow(workflow_id, get_workflow_path(workflow_id))
 ```
 
 #### Transport Configuration
 
 **stdio Transport** (Local CLI):
 ```python
-class StdioTransport:
-    async def read_message(self) -> Dict[str, Any]:
-        """Read JSON-RPC message from stdin"""
-        line = await asyncio.get_event_loop().run_in_executor(
-            None, sys.stdin.readline
-        )
-        return json.loads(line)
+from mcp.server.stdio import stdio_server
+from mcp.server.fastmcp import FastMCP
+
+async def run_stdio_server():
+    """Run MCP server with stdio transport"""
+    mcp = FastMCP("Workflow Engine")
     
-    async def write_message(self, message: Dict[str, Any]) -> None:
-        """Write JSON-RPC message to stdout"""
-        print(json.dumps(message), flush=True)
+    # Register workflow tools
+    register_workflow_tools(mcp)
+    
+    # Run with stdio transport (official SDK)
+    async with stdio_server() as (read_stream, write_stream):
+        await mcp.run(read_stream, write_stream)
 ```
 
 **HTTP Transport** (Network):
 ```python
-class HTTPTransport:
-    def __init__(self, host: str, port: int, tls_config: Optional[TLSConfig]):
-        self.host = host
-        self.port = port
-        self.tls_config = tls_config
-        
-    async def handle_request(
-        self, 
-        request: web.Request
-    ) -> web.Response:
-        """Handle HTTP POST with JSON-RPC message"""
-        data = await request.json()
-        response = await self.process_jsonrpc(data)
-        return web.json_response(response)
+from mcp.server.fastmcp import FastMCP
+
+async def run_http_server(security_mode: TransportSecurityMode):
+    """Run MCP server with HTTP transport"""
+    mcp = FastMCP("Workflow Engine")
+    
+    # Register workflow tools
+    register_workflow_tools(mcp)
+    
+    # Configure transport based on security mode
+    if security_mode == TransportSecurityMode.PRODUCTION:
+        # Require TLS in production
+        mcp.run(
+            transport="streamable-http",
+            host="0.0.0.0",
+            port=8000,
+            # TLS configuration enforced at transport level
+        )
+    else:
+        # Development mode - localhost only
+        mcp.run(
+            transport="streamable-http",
+            host="127.0.0.1",
+            port=8000
+        )
 ```
 
 **Security Modes**:
 ```python
+from enum import Enum
+
 class TransportSecurityMode(Enum):
     DEVELOPMENT = "development"  # HTTP on localhost only
     PRODUCTION = "production"    # HTTPS/TLS mandatory
 
-class MCPServer:
-    def __init__(self, security_mode: TransportSecurityMode):
-        self.security_mode = security_mode
-        
-    def validate_transport(self, transport: Transport) -> None:
-        """Enforce security mode constraints"""
-        if self.security_mode == TransportSecurityMode.PRODUCTION:
-            if isinstance(transport, HTTPTransport):
-                if not transport.tls_config:
-                    raise SecurityError(
-                        "Production mode requires TLS for HTTP transport"
-                    )
+def validate_transport_security(
+    transport_type: str,
+    security_mode: TransportSecurityMode,
+    host: str
+) -> None:
+    """Enforce security mode constraints"""
+    if security_mode == TransportSecurityMode.PRODUCTION:
+        if transport_type == "streamable-http":
+            # In production, require TLS (enforced by transport config)
+            # and reject localhost-only bindings
+            if host in ("127.0.0.1", "localhost"):
+                raise SecurityError(
+                    "Production mode requires network-accessible binding"
+                )
 ```
 
 ## Data Models

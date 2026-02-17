@@ -1,0 +1,1 @@
+"""KSOPS adapter tests"""

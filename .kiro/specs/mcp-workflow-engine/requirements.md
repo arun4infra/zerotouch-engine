@@ -59,7 +59,7 @@ The MCP Workflow Engine is a Python-based backend service that orchestrates cond
 5. WHEN question is presented, THE Workflow_Engine SHALL emit question_presented event
 6. WHEN workflow completes, THE Workflow_Engine SHALL emit workflow_completed event
 7. WHEN session is restored, THE Workflow_Engine SHALL emit session_restored event
-8. THE MCP_Server SHALL deliver workflow events via JSON-RPC notifications to connected clients
+8. THE MCP_Server SHALL deliver workflow events via MCP notification protocol using send_notification() method to connected clients
 
 ### Requirement 4: Immutable Feedback System
 
@@ -97,13 +97,13 @@ The MCP Workflow Engine is a Python-based backend service that orchestrates cond
 
 #### Acceptance Criteria
 
-1. THE MCP_Server SHALL expose JSON-RPC endpoints over stdio transport
-2. WHEN CLI_Client sends request, THE MCP_Server SHALL parse JSON-RPC message
-3. WHEN MCP_Server processes request, THE system SHALL return JSON-RPC response
+1. THE MCP_Server SHALL expose workflow operations as MCP tools over stdio transport
+2. WHEN CLI_Client sends tool call request, THE MCP_Server SHALL parse MCP protocol message
+3. WHEN MCP_Server processes tool call, THE system SHALL return CallToolResult response
 4. THE MCP_Server SHALL support HTTP transport as alternative to stdio
 5. WHEN transport error occurs, THE MCP_Server SHALL return JSON-RPC error response with code and message
 6. THE MCP_Server SHALL remain stateless between requests
-7. WHEN session state is needed, THE CLI_Client SHALL include serialized state in request
+7. WHEN session state is needed, THE CLI_Client SHALL include serialized state in tool call parameters
 
 ### Requirement 7: Session Management Operations
 

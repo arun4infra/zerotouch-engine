@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: ztc-workflow-mcp
+Version: 0.1.0
+Summary: ZTC Workflow MCP Server - Model Context Protocol integration for workflows
+License: MIT
+Project-URL: Repository, https://github.com/zerotouch/ztc
+Project-URL: Issues, https://github.com/zerotouch/ztc/issues
+Keywords: mcp,workflow,protocol,model-context-protocol,ai
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: ztc-workflow-engine
+Requires-Dist: mcp<2.0.0,>=1.26.0
+Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: aiofiles<25.0.0,>=24.0.0
+
+# ZTC Workflow MCP Server
+
+Model Context Protocol server integration for ZTC workflows.
+
+## Features
+
+- MCP protocol implementation
+- Workflow observation and monitoring
+- Transport security modes
+- Storage integration
+
+## Installation
+
+```bash
+pip install ztc-workflow-mcp
+```
+
+## Usage
+
+```python
+from workflow_mcp import WorkflowMCPServer
+
+server = WorkflowMCPServer()
+# Configure and run server
+```

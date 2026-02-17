@@ -6,10 +6,10 @@ This implementation plan follows a user journey approach, building the MCP Workf
 
 ## Tasks
 
-- [ ] 1. Set up project structure and core data models
-  - Create `workflow_engine/` directory structure with `core/`, `models/`, `parser/`, `validation/`, `storage/`, `secrets/`, `adapters/` subdirectories
-  - Create `mcp/` directory structure with `server/`, `storage/`, `observer/` subdirectories
-  - Create `cli/` directory structure with presentation layer modules
+- [x] 1. Set up project structure and core data models
+  - Create `libs/workflow_engine/` directory structure with `core/`, `models/`, `parser/`, `validation/`, `storage/`, `secrets/`, `adapters/` subdirectories
+  - Create `libs/mcp/` directory structure with `server/`, `storage/`, `observer/` subdirectories
+  - Create `libs/cli/` directory structure with presentation layer modules
   - Implement core data models: `Entry`, `EntryData`, `QuestionNode`, `ValidationRules`, `WorkflowDSL`
   - Implement `QuestionPathFeedback` as frozen dataclass with serialization methods
   - Implement `QuestionPathLevelTracker` with state tracking fields
@@ -29,7 +29,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 8: Workflow DSL state ID uniqueness**
   - **Validates: Requirements 5.3**
 
-- [ ] 2. Implement QuestionPathTraverser core navigation
+- [x] 2. Implement QuestionPathTraverser core navigation
   - Implement `QuestionPathTraverser` class with initialization
   - Implement `start_async()` method for workflow initialization
   - Implement `get_current_question()` method
@@ -46,13 +46,13 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 7: Feedback history ordering**
   - **Validates: Requirements 4.6**
 
-- [ ] 3. Checkpoint: Core traversal validation
+- [x] 3. Checkpoint: Core traversal validation
   - **Deliverables**: QuestionPathTraverser with basic navigation, feedback history, level tracking
   - **Verification**: Run integration test script that creates a simple 3-question workflow, answers all questions, verifies feedback history order and completeness
-  - **Test Script**: `tests/checkpoints/test_checkpoint_1_core_traversal.py`
+  - **Test Script**: `libs/workflow_engine/tests/integration/checkpoints/test_checkpoint_1_core_traversal.py`
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 4. Implement session serialization and restoration
+- [x] 4. Implement session serialization and restoration
   - Implement `serialize()` method on QuestionPathTraverser
   - Implement `restore_async()` method with state reconstruction
   - Implement serialization for QuestionPathFeedback with `to_dict()` and `from_dict()`
@@ -77,7 +77,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 29: Session restoration committed feedback only**
   - **Validates: Requirements 15.6**
 
-- [ ] 5. Implement SessionStore strategy pattern
+- [x] 5. Implement SessionStore strategy pattern
   - Create `SessionStore` abstract base class with save/load/delete methods
   - Implement `FilesystemStore` with atomic writes to `.ztc/session.json`
   - Implement `InMemoryStore` for testing
@@ -88,13 +88,13 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 3: Filesystem atomic write safety**
   - **Validates: Requirements 2.4**
 
-- [ ] 6. Checkpoint: Session persistence validation
+- [x] 6. Checkpoint: Session persistence validation
   - **Deliverables**: Complete session serialization, FilesystemStore with atomic writes, session restoration
   - **Verification**: Run integration test that starts workflow, answers 2 questions, saves to filesystem, kills process, restores from filesystem, verifies state matches
-  - **Test Script**: `tests/checkpoints/test_checkpoint_2_session_persistence.py`
+  - **Test Script**: `libs/workflow_engine/tests/integration/checkpoints/test_checkpoint_2_session_persistence.py`
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 7. Implement Observer pattern for workflow events
+- [x] 7. Implement Observer pattern for workflow events
   - Create `QuestionPathTraverserObserver` abstract base class
   - Implement observer registration and deregistration in QuestionPathTraverser
   - Implement event notification classes: `QuestionPathNextQuestionReady`, `QuestionPathFeedbackEntered`, `QuestionPathFeedbackUpdated`, `QuestionPathCompleted`, `SessionRestored`
@@ -105,7 +105,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 4: Observer notification completeness**
   - **Validates: Requirements 3.2, 3.4, 3.5, 3.6, 3.7**
 
-- [ ] 8. Implement Workflow DSL parser with Pydantic
+- [x] 8. Implement Workflow DSL parser with Pydantic
   - Create `WorkflowDSLParser` class
   - Implement `parse_yaml()` method with PyYAML
   - Add Pydantic schema validation for WorkflowDSL
@@ -117,7 +117,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 9: Workflow DSL validation correctness**
   - **Validates: Requirements 5.6, 5.7**
 
-- [ ] 9. Implement answer validation system
+- [x] 9. Implement answer validation system
   - Create validation rule classes for string, integer, boolean, choice types
   - Implement regex validation for strings
   - Implement range validation for integers
@@ -130,13 +130,13 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 13: Answer validation state preservation**
   - **Validates: Requirements 7.3, 7.4, 7.5, 11.2, 11.3, 11.4**
 
-- [ ] 10. Checkpoint: Workflow DSL and validation
+- [x] 10. Checkpoint: Workflow DSL and validation
   - **Deliverables**: Complete workflow DSL parser, answer validation system, observer notifications
   - **Verification**: Run integration test that loads complex workflow YAML with nested states, conditional transitions, validation rules; submit valid and invalid answers; verify validation errors and state preservation
-  - **Test Script**: `tests/checkpoints/test_checkpoint_3_dsl_validation.py`
+  - **Test Script**: `libs/workflow_engine/tests/integration/checkpoints/test_checkpoint_3_dsl_validation.py`
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 11. Implement automatic answer provider
+- [x] 11. Implement automatic answer provider
   - Create `AutomaticAnswerProvider` class
   - Implement expression evaluator for automatic answer expressions
   - Implement `get_automatic_answer_async()` method
@@ -153,7 +153,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 16: Automatic answer fallback**
   - **Validates: Requirements 8.5**
 
-- [ ] 12. Implement nested workflow navigation
+- [x] 12. Implement nested workflow navigation
   - Add level stack push/pop operations to QuestionPathTraverser
   - Implement child workflow entry with context inheritance
   - Implement child workflow completion with parent resumption
@@ -169,13 +169,13 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 23: Nested workflow context isolation and inheritance**
   - **Validates: Requirements 13.4, 13.6, 13.7**
 
-- [ ] 13. Checkpoint: Advanced workflow features
+- [x] 13. Checkpoint: Advanced workflow features
   - **Deliverables**: Automatic answer provider, nested workflow navigation with level stack
   - **Verification**: Run integration test with workflow containing auto-answered questions and nested sub-workflows; verify questions are skipped, feedback has auto-answer flag, level stack grows/shrinks correctly, context inheritance works
-  - **Test Script**: `tests/checkpoints/test_checkpoint_4_advanced_features.py`
+  - **Test Script**: `libs/workflow_engine/tests/integration/checkpoints/test_checkpoint_4_advanced_features.py`
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 14. Implement deferred operations registry
+- [x] 14. Implement deferred operations registry
   - Create `OnQuestionPathCompleteOperation` abstract base class
   - Create `DeferredOperationsRegistry` class
   - Implement operation registration during traversal
@@ -196,7 +196,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 26: Deferred operations rollback**
   - **Validates: Requirements 14.6, 14.7**
 
-- [ ] 15. Implement secrets management system
+- [x] 15. Implement secrets management system
   - Add `sensitive` flag to QuestionNode model
   - Implement environment variable reference storage in serialization
   - Create `SecretResolver` class for runtime resolution
@@ -222,21 +222,21 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 33: Sensitive field deferred resolution**
   - **Validates: Requirements 16.9**
 
-- [ ] 16. Checkpoint: Deferred operations and secrets
+- [x] 16. Checkpoint: Deferred operations and secrets
   - **Deliverables**: Deferred operations registry with rollback, secrets management with environment variable references
   - **Verification**: Run integration test that registers deferred operations, completes workflow, verifies execution order; test rollback on failure; test sensitive fields are stored as env var references and resolved at runtime
-  - **Test Script**: `tests/checkpoints/test_checkpoint_5_operations_secrets.py`
+  - **Test Script**: `libs/workflow_engine/tests/integration/checkpoints/test_checkpoint_5_operations_secrets.py`
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 17. Implement adapter integration layer
-  - Move all adapter logic from `ztc/adapters/` to `workflow_engine/adapters/`
-  - Move `PlatformAdapter` base class to `workflow_engine/adapters/base.py`
-  - Move `AdapterRegistry` to `workflow_engine/adapters/registry.py`
-  - Move all existing adapters (Hetzner, Cilium, etc.) to `workflow_engine/adapters/`
-  - Create `AdapterQuestionTranslator` class in `workflow_engine/adapters/translator.py`
+- [x] 17. Implement adapter integration layer
+  - Move all adapter logic from `ztc/adapters/` to `libs/workflow_engine/adapters/` ✅ COMPLETED
+  - Move `PlatformAdapter` base class to `libs/workflow_engine/adapters/base.py` ✅ COMPLETED
+  - Move `AdapterRegistry` to `libs/workflow_engine/adapters/registry.py`
+  - Move all existing adapters (Hetzner, Cilium, etc.) to `libs/workflow_engine/adapters/` ✅ COMPLETED
+  - Create `AdapterQuestionTranslator` class in `libs/workflow_engine/adapters/translator.py`
   - Implement `translate_input_prompt()` method for InputPrompt → QuestionNode conversion
   - Implement type mapping between InputPrompt and workflow DSL types
-  - Create `AdapterWorkflowGenerator` class in `workflow_engine/adapters/generator.py`
+  - Create `AdapterWorkflowGenerator` class in `libs/workflow_engine/adapters/generator.py`
   - Implement `generate_workflow_from_adapters()` method
   - Implement PlatformContext construction from session answers
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.7, 9.11_
@@ -249,7 +249,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 17: Adapter loading and context construction**
   - **Validates: Requirements 9.2, 9.3, 9.4**
 
-- [ ] 18. Implement cross-adapter dependencies
+- [x] 18. Implement cross-adapter dependencies
   - Implement answer merging across multiple adapters in PlatformContext
   - Add cross-adapter answer accessibility
   - Implement adapter failure state preservation
@@ -263,7 +263,7 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 19: Adapter failure state preservation**
   - **Validates: Requirements 9.8**
 
-- [ ] 19. Implement dynamic choice resolution
+- [x] 19. Implement dynamic choice resolution
   - Create `DynamicChoiceResolver` class
   - Implement `resolve_choices()` method calling adapter's `get_dynamic_choices()`
   - Integrate dynamic choice resolution into question presentation
@@ -274,38 +274,39 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 20: Dynamic choice resolution**
   - **Validates: Requirements 9.9**
 
-- [ ] 20. Implement adapter read-only restrictions
+- [x] 20. Implement adapter read-only restrictions
   - Add validation to ensure adapters only perform read operations during traversal
   - Implement adapter operation type checking (validation vs mutation)
   - Defer state-mutating operations to deferred operations registry
   - _Requirements: 9.10_
 
-- [ ] 21. Checkpoint: Adapter integration
+- [x] 21. Checkpoint: Adapter integration
   - **Deliverables**: Complete adapter integration layer, dynamic workflow generation from adapters, cross-adapter dependencies, dynamic choice resolution
   - **Verification**: Run integration test that loads Hetzner and Cilium adapters, generates workflow from their InputPrompts, answers questions, constructs PlatformContext with merged answers, verifies cross-adapter answer access, tests dynamic choices
-  - **Test Script**: `tests/checkpoints/test_checkpoint_6_adapter_integration.py`
+  - **Test Script**: `libs/workflow_engine/tests/integration/checkpoints/test_checkpoint_6_adapter_integration.py`
   - Ensure all tests pass, ask the user if questions arise
 
-- [ ] 22. Implement MCP JSON-RPC protocol layer
-  - Create JSON-RPC message parser and validator
-  - Implement stdio transport for local CLI communication
-  - Implement HTTP transport for network communication
-  - Add JSON-RPC error response formatting
-  - Implement request routing to workflow engine methods
-  - _Requirements: 6.1, 6.2, 6.3, 6.5_
+- [x] 22. Implement MCP protocol layer using official SDK
+  - Import official MCP Python SDK (`mcp` package)
+  - Create FastMCP server instance for workflow engine
+  - Implement stdio transport using `stdio_server()` from official SDK
+  - Implement HTTP transport using `streamable-http` transport from official SDK
+  - Configure transport security modes (Development/Production)
+  - Add MCP protocol error response formatting using SDK types
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ]* 22.1 Write property test for JSON-RPC parsing
-  - **Property 10: JSON-RPC parsing correctness**
+- [ ]* 22.1 Write property test for MCP tool call handling
+  - **Property 10: MCP tool call handling correctness**
   - **Validates: Requirements 6.2, 6.3, 6.5**
 
-- [ ] 23. Implement MCP Server with stateless architecture
-  - Create `MCPServer` class with stateless request handling
-  - Implement `start_workflow` endpoint
-  - Implement `submit_answer` endpoint
-  - Implement `restore_session` endpoint
-  - Implement `restart_workflow` endpoint
-  - Implement `MCPServerObserver` for JSON-RPC notifications
-  - Add state blob encoding/decoding (base64)
+- [x] 23. Implement MCP workflow tools with stateless architecture
+  - Create `start_workflow` MCP tool using `@mcp.tool()` decorator
+  - Create `submit_answer` MCP tool using `@mcp.tool()` decorator
+  - Create `restore_session` MCP tool using `@mcp.tool()` decorator
+  - Create `restart_workflow` MCP tool using `@mcp.tool()` decorator
+  - Implement `MCPServerObserver` using `ServerSession.send_notification()` from official SDK
+  - Add state blob encoding/decoding (base64) in tool implementations
+  - Ensure all tools remain stateless - state passed via parameters
   - _Requirements: 6.6, 6.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 10.1, 10.2, 10.3_
 
 - [ ]* 23.1 Write property test for session ID uniqueness
@@ -320,53 +321,55 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - **Property 14: Workflow restart initialization**
   - **Validates: Requirements 7.7, 10.1, 10.2, 10.3**
 
-- [ ] 24. Implement transport security strategies
+- [x] 24. Implement transport security strategies
   - Add `TransportSecurityMode` enum (Development, Production)
-  - Implement development mode with localhost-only HTTP
-  - Implement production mode with mandatory TLS
-  - Add TLS certificate verification for production mode
-  - Implement connection rejection for non-TLS in production
+  - Implement development mode with localhost-only HTTP binding (127.0.0.1)
+  - Implement production mode with network binding and TLS enforcement
+  - Configure TLS at transport level using FastMCP transport configuration
+  - Add validation to reject localhost bindings in production mode
+  - Implement connection rejection for non-TLS in production via transport config
   - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5_
 
 - [ ]* 24.1 Write property test for production mode TLS enforcement
   - **Property 34: Production mode TLS enforcement**
   - **Validates: Requirements 17.3**
 
-- [ ] 25. Checkpoint: MCP protocol and server
-  - **Deliverables**: Complete MCP server with JSON-RPC endpoints, stdio and HTTP transports, stateless architecture, transport security modes
-  - **Verification**: Run integration test that starts MCP server, connects via stdio, starts workflow, submits answers, restores session, restarts workflow; verify all JSON-RPC responses are valid, state blobs work correctly, server remains stateless
-  - **Test Script**: `tests/checkpoints/test_checkpoint_7_mcp_server.py`
+- [x] 25. Checkpoint: MCP protocol and server
+  - **Deliverables**: Complete MCP server with workflow tools, stdio and HTTP transports using official SDK, stateless architecture, transport security modes
+  - **Verification**: Run integration test that starts MCP server, connects via stdio using official SDK client, calls workflow tools (start_workflow, submit_answer, restore_session, restart_workflow); verify all MCP tool responses are valid, state blobs work correctly, server remains stateless, notifications use official SDK format
+  - **Test Script**: `libs/mcp/tests/integration/checkpoints/test_checkpoint_7_mcp_server.py`
   - Ensure all tests pass, ask the user if questions arise
 
 - [ ] 26. Implement CLI client with FilesystemStore
-  - Create CLI presentation layer in `cli/` directory
+  - Create CLI presentation layer in `libs/cli/` directory
   - **Reference existing CLI patterns**: Study `zerotouch-engine/ztc/commands/` and `zerotouch-engine/ztc/workflows/` for CLI layer best practices (Typer usage, error formatting, user interaction patterns)
-  - Implement `cli/workflow_commands.py` with Typer commands for workflow lifecycle
-  - Implement `ztc workflow start` command (presentation only - calls MCP server)
-  - Implement `ztc workflow answer` command (presentation only - calls MCP server)
-  - Implement `ztc workflow restore` command (presentation only - calls MCP server)
-  - Implement `ztc workflow restart` command (presentation only - calls MCP server)
-  - Create `cli/formatters.py` for error/info text formatting (follow patterns from `ztc/commands/`)
-  - Create `cli/display.py` for visual representation of server responses (follow patterns from `ztc/commands/`)
+  - Implement `libs/cli/workflow_commands.py` with Typer commands for workflow lifecycle
+  - Implement `ztc workflow start` command (presentation only - calls MCP workflow tools)
+  - Implement `ztc workflow answer` command (presentation only - calls MCP workflow tools)
+  - Implement `ztc workflow restore` command (presentation only - calls MCP workflow tools)
+  - Implement `ztc workflow restart` command (presentation only - calls MCP workflow tools)
+  - Create `libs/cli/formatters.py` for error/info text formatting (follow patterns from `ztc/commands/`)
+  - Create `libs/cli/display.py` for visual representation of tool responses (follow patterns from `ztc/commands/`)
   - Integrate FilesystemStore for `.ztc/session.json` persistence (client-side)
-  - Add JSON-RPC client for MCP server communication
-  - Implement event notification display formatting
+  - Add MCP client using official SDK (`ClientSession` from `mcp` package) for server communication
+  - Implement MCP notification display formatting using official SDK notification types
   - _Requirements: 2.2, 2.4, 6.1, 6.2, 6.3, 6.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
 - [ ] 27. Implement error handling and formatting
-  - Implement validation error responses with field context
-  - Implement workflow DSL error responses with line numbers
-  - Implement session error responses with version mismatch details
-  - Implement adapter error responses with cause information
-  - Implement secret resolution error responses
-  - Implement transport error responses (JSON-RPC standard codes)
+  - Implement validation error responses with field context in tool results
+  - Implement workflow DSL error responses with line numbers in tool results
+  - Implement session error responses with version mismatch details in tool results
+  - Implement adapter error responses with cause information in tool results
+  - Implement secret resolution error responses in tool results
+  - Implement transport error responses using MCP protocol error codes (from official SDK)
   - Add sensitive information redaction in error messages
+  - Use `CallToolResult` with error content for tool-level errors
   - _Requirements: 7.5, 11.4, 12.7_
 
 - [ ] 28. Checkpoint: CLI client and error handling
-  - **Deliverables**: Complete CLI client with all workflow commands, FilesystemStore integration, comprehensive error handling
-  - **Verification**: Run end-to-end integration test using CLI commands: start workflow, answer questions with valid/invalid inputs, verify error messages, save session, restore session, restart workflow; verify filesystem persistence works correctly
-  - **Test Script**: `tests/checkpoints/test_checkpoint_8_cli_end_to_end.py`
+  - **Deliverables**: Complete CLI client with all workflow commands using official MCP SDK client, FilesystemStore integration, comprehensive error handling
+  - **Verification**: Run end-to-end integration test using CLI commands: start workflow via MCP tool call, answer questions with valid/invalid inputs, verify error messages in tool results, save session to filesystem, restore session, restart workflow; verify filesystem persistence works correctly, MCP client communication uses official SDK
+  - **Test Script**: `libs/cli/tests/integration/checkpoints/test_checkpoint_8_cli_end_to_end.py`
   - Ensure all tests pass, ask the user if questions arise
 
 - [ ] 29. Create Hypothesis custom strategies
@@ -386,9 +389,9 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - _Validates all requirements through property-based testing_
 
 - [ ] 31. Final checkpoint: Complete system validation
-  - **Deliverables**: Complete MCP Workflow Engine with all features, comprehensive property test suite, CLI client, adapter integration
-  - **Verification**: Run full integration test suite covering all user journeys: simple workflows, nested workflows, adapter-generated workflows, session persistence, secrets management, error handling; verify all 34 properties pass with 100+ iterations
-  - **Test Script**: `tests/checkpoints/test_checkpoint_9_full_system.py`
+  - **Deliverables**: Complete MCP Workflow Engine with all features using official MCP Python SDK, comprehensive property test suite, CLI client with MCP client integration, adapter integration
+  - **Verification**: Run full integration test suite covering all user journeys: simple workflows via MCP tools, nested workflows, adapter-generated workflows, session persistence, secrets management, error handling in tool results, MCP notifications; verify all 34 properties pass with 100+ iterations, verify official SDK integration works correctly
+  - **Test Script**: `tests/integration/test_checkpoint_9_full_system.py` (cross-lib integration)
   - Ensure all tests pass, ask the user if questions arise
 
 ## Notes

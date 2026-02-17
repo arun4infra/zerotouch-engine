@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ztc-cli"
+version = "0.1.0"
+description = "ZTC CLI - Terminal interface for ZeroTouch Composition Engine"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11,<3.15"
+keywords = ["cli", "kubernetes", "gitops", "bootstrap", "workflow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Terminals",
+]
+dependencies = [
+    "mcp>=1.26.0,<2.0.0",
+    "typer>=0.16.0,<1.0.0",
+    "rich>=13.0.0,<14.0.0",
+    "questionary>=2.1.1,<3.0.0",
+    "aiofiles>=24.0.0,<25.0.0",
+]
+
+[project.scripts]
+ztc-workflow = "cli.workflow_commands:app"
+
+[project.urls]
+Repository = "https://github.com/zerotouch/ztc"
+Issues = "https://github.com/zerotouch/ztc/issues"
+
+[dependency-groups]
+test = [
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-asyncio>=1.3.0,<2.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cli"]
+
+[tool.uv.sources]
+# Removed ztc-workflow-engine - CLI now communicates via MCP only
+
+[tool.uv]
+package = true
+
+[tool.uv.workspace]
+members = []
+
+# Add parent directory to path for ztc imports during migration
+[tool.setuptools]
+py-modules = []

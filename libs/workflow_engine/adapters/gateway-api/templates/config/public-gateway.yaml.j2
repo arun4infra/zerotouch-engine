@@ -1,0 +1,38 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/gateway/gateway-config/public-gateway.yaml #}
+{# Migration: Converted to Jinja2 template with hetzner_location and domain from config #}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: public-gateway
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: public-gateway
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: zerotouch-platform
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+spec:
+  gatewayClassName: cilium
+  infrastructure:
+    annotations:
+      # Hetzner LoadBalancer configuration for Zero-Touch provisioning
+      load-balancer.hetzner.cloud/location: {{ hetzner_location }}
+      load-balancer.hetzner.cloud/use-private-ip: "false"
+      load-balancer.hetzner.cloud/name: "public-gateway"
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ domain | replace('.', '-') }}-tls-cert

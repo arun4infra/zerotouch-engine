@@ -1,0 +1,9 @@
+{# Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/gateway/gateway-config/kustomization.yaml #}
+{# Migration: Converted to Jinja2 template #}
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- bootstrap-issuer.yaml
+- gateway-certificate.yaml
+- letsencrypt-issuer.yaml
+- public-gateway.yaml
