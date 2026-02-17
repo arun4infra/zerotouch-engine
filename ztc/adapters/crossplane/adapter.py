@@ -83,6 +83,17 @@ class CrossplaneAdapter(PlatformAdapter):
                 help_text="Comma-separated list of providers (kubernetes,aws,hetzner)"
             )
         ]
+    
+    def derive_field_value(self, field_name: str, current_config: Dict[str, Any]) -> Any:
+        """Convert providers string to list format"""
+        if field_name == "providers":
+            # If providers comes from default or env var as string, convert to list
+            # This handles: "kubernetes" -> ["kubernetes"] or "kubernetes,aws" -> ["kubernetes", "aws"]
+            providers_value = current_config.get("providers")
+            if isinstance(providers_value, str):
+                # Split by comma and strip whitespace
+                return [p.strip() for p in providers_value.split(",")]
+        return None
 
     def pre_work_scripts(self) -> List[ScriptReference]:
         """Return pre-work scripts."""

@@ -10,6 +10,7 @@ import questionary
 
 from ztc.registry.adapter_registry import AdapterRegistry
 from ztc.engine.script_executor import ScriptExecutor
+from ztc.adapters.base import InputPrompt
 
 
 class InitCommand:
@@ -34,13 +35,14 @@ class InitCommand:
         self.env = env
         self.registry = AdapterRegistry()
         self.config = {}
+        self.platform_config = {}  # Store platform metadata
         self.secrets_cache = {}  # Store secrets separately from config
         self.env_vars = {}
         self.platform_yaml_path = Path("platform/platform.yaml")
         self.yaml = YAML()
         self.yaml.default_flow_style = False
         self.yaml.preserve_quotes = True
-        self.yaml.width = 4096  # Prevent line wrapping for long values
+        self.yaml.width = 999999  # Disable line wrapping completely
         self.yaml.indent(mapping=2, sequence=2, offset=0)  # offset=0 for proper list item alignment
         
         # Load environment variables from .env file
@@ -67,6 +69,16 @@ class InitCommand:
         self.console.print("[bold blue]ZeroTouch Composition Engine[/bold blue]")
         self.console.print("Interactive platform configuration wizard\n")
         
+        # Check if platform.yaml already exists
+        if self.platform_yaml_path.exists():
+            self.console.print(f"[yellow]Platform configuration already exists: {self.platform_yaml_path}[/yellow]")
+            self.console.print("[yellow]Init process cannot run when platform.yaml exists.[/yellow]")
+            self.console.print("[dim]To reconfigure, delete platform.yaml and run init again.[/dim]")
+            return
+        
+        # Collect platform metadata first
+        self._collect_platform_metadata()
+        
         # Build selection groups from registry
         selection_groups = self._build_selection_groups()
         
@@ -87,6 +99,47 @@ class InitCommand:
         with open(self.platform_yaml_path) as f:
             data = self.yaml.load(f)
         return data.get("adapters", {})
+    
+    def _collect_platform_metadata(self):
+        """Collect platform-level metadata (app name, organization)"""
+        self.console.print("[bold cyan]Platform Metadata[/bold cyan]")
+        self.console.print("[dim]This information helps generate consistent naming across all resources[/dim]\n")
+        
+        # Organization name first
+        while True:
+            org_name = Prompt.ask("Organization name (GitHub org or username)").strip()
+            if not org_name:
+                self.console.print("[red]Organization name is required[/red]")
+                continue
+            
+            self.platform_config['organization'] = org_name
+            break
+        
+        # App name (must be org name followed by app name)
+        while True:
+            app_name = Prompt.ask("Application name (lowercase, hyphens only)").strip().lower()
+            if not app_name:
+                self.console.print("[red]Application name is required[/red]")
+                continue
+            
+            # Validate format: lowercase alphanumeric with hyphens
+            import re
+            if not re.match(r'^[a-z0-9-]+$', app_name):
+                self.console.print("[red]Invalid format. Use lowercase letters, numbers, and hyphens only[/red]")
+                continue
+            
+            # Validate that app_name starts with org_name
+            if not app_name.startswith(org_name.lower()):
+                self.console.print(f"[red]Application name must start with organization name: {org_name.lower()}-[/red]")
+                self.console.print(f"[dim]Example: {org_name.lower()}-myapp[/dim]")
+                continue
+            
+            self.platform_config['app_name'] = app_name
+            break
+        
+        self.console.print(f"\n[green]✓[/green] Platform metadata collected")
+        self.console.print(f"[dim]  Org: {self.platform_config['organization']}[/dim]")
+        self.console.print(f"[dim]  App: {self.platform_config['app_name']}[/dim]\n")
     
     def _build_selection_groups(self) -> List[Dict]:
         """Build selection groups from registry metadata"""
@@ -172,6 +225,11 @@ class InitCommand:
     def _collect_adapter_inputs(self, adapter_name: str) -> Dict:
         """Collect adapter-specific configuration inputs"""
         adapter = self.registry.get_adapter(adapter_name)
+        
+        # Provide platform metadata and cross-adapter config to adapter
+        adapter.set_platform_metadata(self.platform_config)
+        adapter.set_all_adapters_config(self.config)
+        
         inputs = adapter.get_required_inputs()
         
         if not inputs:
@@ -180,104 +238,45 @@ class InitCommand:
         self.console.print(f"\n[bold]Configure {adapter_name}[/bold]")
         
         # Get adapter config model to detect SecretStr fields
-        config_model = adapter.config_model
-        secret_fields = set()
-        if config_model:
-            for field_name, field_info in config_model.model_fields.items():
-                # Check if field is SecretStr
-                from pydantic import SecretStr
-                if field_info.annotation == SecretStr or (
-                    hasattr(field_info.annotation, '__origin__') and 
-                    field_info.annotation.__origin__ == SecretStr
-                ):
-                    secret_fields.add(field_name)
+        secret_fields = self._get_secret_fields(adapter.config_model)
         
         config = {}
         for input_prompt in inputs:
-            # Special handling for GitHub App Private Key - load from .env.global
-            if input_prompt.name == "github_app_private_key":
-                self.console.print("\n[yellow]GitHub App Private Key must be set in .env.global file[/yellow]")
-                self.console.print("[dim]Add this line to .env.global:[/dim]")
-                self.console.print('[dim]GIT_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----"[/dim]')
-                
-                while True:
-                    ready = Confirm.ask("\nHave you added GIT_APP_PRIVATE_KEY to .env.global?")
-                    if not ready:
-                        self.console.print("[yellow]Please add the key to .env.global and try again[/yellow]")
-                        continue
-                    
-                    # Reload .env.global to get the key
-                    env_file = Path(".env.global")
-                    if not env_file.exists():
-                        self.console.print("[red].env.global file not found[/red]")
-                        continue
-                    
-                    # Parse .env.global for GIT_APP_PRIVATE_KEY (handles multi-line)
-                    key_value = None
-                    with open(env_file) as f:
-                        content = f.read()
-                        # Find GIT_APP_PRIVATE_KEY= and extract until closing quote
-                        import re
-                        match = re.search(r'GIT_APP_PRIVATE_KEY="(.*?)"', content, re.DOTALL)
-                        if match:
-                            key_value = match.group(1)
-                    
-                    if not key_value:
-                        self.console.print("[red]GIT_APP_PRIVATE_KEY not found in .env.global[/red]")
-                        continue
-                    
-                    # Validate the key format
-                    if not re.match(r"^-----BEGIN RSA PRIVATE KEY-----[\s\S]+-----END RSA PRIVATE KEY-----$", key_value, re.DOTALL):
-                        self.console.print("[red]Invalid RSA private key format[/red]")
-                        continue
-                    
-                    # Store in secrets_cache instead of config
+            # Check if adapter wants to skip this field
+            if adapter.should_skip_field(input_prompt.name, config):
+                continue
+            
+            # Check if adapter can derive this field's value
+            derived_value = adapter.derive_field_value(input_prompt.name, config)
+            if derived_value is not None:
+                config[input_prompt.name] = derived_value
+                self.console.print(f"[dim]{input_prompt.prompt}: {derived_value} (auto-derived)[/dim]")
+                continue
+            
+            # Check if adapter provides custom collection logic
+            custom_value = adapter.collect_field_value(input_prompt, config)
+            if custom_value is not None:
+                # Store in appropriate location (secrets_cache or config)
+                if input_prompt.name in secret_fields:
                     if adapter_name not in self.secrets_cache:
                         self.secrets_cache[adapter_name] = {}
-                    self.secrets_cache[adapter_name][input_prompt.name] = key_value
-                    self.console.print("[green]✓[/green] Valid private key loaded from .env.global")
-                    break
+                    self.secrets_cache[adapter_name][input_prompt.name] = custom_value
+                else:
+                    config[input_prompt.name] = custom_value
                 continue
             
-            # Special handling for tenant_repo_url - show instructions first
-            if input_prompt.name == "tenant_repo_url":
-                self.console.print(f"\n[yellow]Please create a GitHub repository for tenant configuration:[/yellow]")
-                self.console.print("[dim]1. Go to https://github.com/new[/dim]")
-                self.console.print("[dim]2. Make it private and initialize with README[/dim]")
-                self.console.print("[dim]3. Copy the repository URL[/dim]\n")
-                
-                while True:
-                    repo_url = Prompt.ask(input_prompt.prompt).strip()
-                    if not repo_url:
-                        self.console.print("[red]Repository URL is required[/red]")
-                        continue
-                    
-                    # Validate URL format
-                    import re
-                    if not re.match(r"^https://github\.com/[^/]+/[^/]+/?$", repo_url):
-                        self.console.print("[red]Invalid GitHub URL format[/red]")
-                        self.console.print("[dim]Expected: https://github.com/org/repo[/dim]")
-                        continue
-                    
-                    config[input_prompt.name] = repo_url.rstrip('/')
-                    break
-                continue
+            # Get suggestion from adapter
+            suggestion = adapter.get_field_suggestion(input_prompt.name)
+            if suggestion:
+                self.console.print(f"[dim]Suggested: {suggestion}[/dim]")
             
-            # Skip BGP ASN if BGP not enabled
-            if input_prompt.name == "bgp_asn" and not config.get("bgp_enabled", False):
+            # Check if value exists in .env.{env} file (priority over defaults)
+            env_key = f"{adapter_name.upper()}_{input_prompt.name.upper()}"
+            if env_key in self.env_vars:
+                value = self.env_vars[env_key]
+                config[input_prompt.name] = value
+                self.console.print(f"[dim]{input_prompt.prompt}: {value} (from .env.{self.env})[/dim]")
                 continue
-            
-            # Special handling for KSOPS s3_region - extract from s3_endpoint
-            if input_prompt.name == "s3_region" and "s3_endpoint" in config:
-                import re
-                endpoint = config["s3_endpoint"]
-                # Extract region from URL like https://fsn1.your-objectstorage.com
-                match = re.search(r'https?://([^.]+)\.', endpoint)
-                if match:
-                    region = match.group(1)
-                    config[input_prompt.name] = region
-                    self.console.print(f"[dim]{input_prompt.prompt}: {region} (auto-detected from endpoint)[/dim]")
-                    continue
             
             # Auto-select if default exists (skip prompt)
             if input_prompt.default is not None:
@@ -285,120 +284,10 @@ class InitCommand:
                 self.console.print(f"[dim]{input_prompt.prompt}: {input_prompt.default} (auto-selected)[/dim]")
                 continue
             
-            # Special handling for Talos nodes - iterate over Hetzner IPs
-            if input_prompt.type == "json" and input_prompt.name == "nodes":
-                nodes = []
-                server_ips = self.config.get("hetzner", {}).get("server_ips", [])
-                
-                if not server_ips:
-                    self.console.print("[red]No server IPs found from Hetzner config[/red]")
-                    continue
-                
-                for ip in server_ips:
-                    self.console.print(f"\n[cyan]Configure server: {ip}[/cyan]")
-                    
-                    while True:
-                        name = Prompt.ask(f"Server name for {ip} (e.g., cp01, worker01)").strip()
-                        if name:
-                            break
-                        self.console.print("[red]Server name is required[/red]")
-                    
-                    role = questionary.select(
-                        f"Role for {ip}:",
-                        choices=["controlplane", "worker"]
-                    ).ask()
-                    
-                    nodes.append({"name": name, "ip": ip, "role": role})
-                
-                config[input_prompt.name] = nodes
-                continue
+            # Standard input collection
+            value = self._collect_standard_input(input_prompt)
             
-            if input_prompt.type == "boolean":
-                value = Confirm.ask(input_prompt.prompt, default=input_prompt.default or False)
-            elif input_prompt.type == "choice":
-                value = Prompt.ask(
-                    input_prompt.prompt,
-                    choices=input_prompt.choices,
-                    default=input_prompt.default
-                )
-            elif input_prompt.type == "password":
-                while True:
-                    value = Prompt.ask(input_prompt.prompt, password=True)
-                    if value:
-                        # Only strip leading/trailing whitespace, preserve internal newlines for keys
-                        value = value.strip()
-                        # Validate password fields if pattern provided
-                        if input_prompt.validation:
-                            import re
-                            # For RSA keys, accept both single-line and multi-line format
-                            if "RSA PRIVATE KEY" in input_prompt.validation:
-                                # Normalize: if single line, add newlines after headers
-                                if "\\n" not in value and "\n" not in value:
-                                    # Single-line format - add newlines
-                                    value = value.replace("-----BEGIN RSA PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----\n")
-                                    value = value.replace("-----END RSA PRIVATE KEY-----", "\n-----END RSA PRIVATE KEY-----")
-                            
-                            if not re.match(input_prompt.validation, value, re.DOTALL):
-                                self.console.print(f"[red]Invalid format. {input_prompt.help_text}[/red]")
-                                continue
-                        break
-                    self.console.print("[red]This field is required[/red]")
-            elif input_prompt.type == "json":
-                import json
-                while True:
-                    value = Prompt.ask(input_prompt.prompt)
-                    if value:
-                        try:
-                            value = json.loads(value)
-                            break
-                        except json.JSONDecodeError as e:
-                            self.console.print(f"[red]Invalid JSON: {e}[/red]")
-                    else:
-                        self.console.print("[red]This field is required[/red]")
-            else:
-                while True:
-                    # Show default in prompt if available
-                    prompt_text = input_prompt.prompt
-                    if input_prompt.default:
-                        prompt_text = f"{input_prompt.prompt} [{input_prompt.default}]"
-                    
-                    value = Prompt.ask(prompt_text, default=str(input_prompt.default) if input_prompt.default else None)
-                    if value:
-                        value = value.strip()
-                        # Validate against regex pattern if provided (before parsing)
-                        if input_prompt.validation:
-                            import re
-                            # Check if it's a comma-separated list OR field name ends with 's'
-                            if input_prompt.name.endswith("s"):
-                                # Always treat as list for plural field names
-                                if "," in value:
-                                    items = [v.strip() for v in value.split(",")]
-                                else:
-                                    items = [value.strip()]
-                                
-                                # Validate each item
-                                invalid_items = [v for v in items if not re.match(input_prompt.validation, v)]
-                                if invalid_items:
-                                    self.console.print(f"[red]Invalid format for: {', '.join(invalid_items)}[/red]")
-                                    self.console.print(f"[red]Expected: {input_prompt.help_text or input_prompt.validation}[/red]")
-                                    continue
-                                value = items
-                            else:
-                                # Single value validation
-                                if not re.match(input_prompt.validation, value):
-                                    self.console.print(f"[red]Invalid format. Expected: {input_prompt.help_text or input_prompt.validation}[/red]")
-                                    continue
-                        else:
-                            # No validation, just parse comma-separated lists for plural fields
-                            if input_prompt.name.endswith("s"):
-                                if "," in value:
-                                    value = [v.strip() for v in value.split(",")]
-                                else:
-                                    value = [value.strip()]
-                        break
-                    self.console.print("[red]This field is required[/red]")
-            
-            # Store secrets separately from config
+            # Store in appropriate location (secrets_cache or config)
             if input_prompt.name in secret_fields:
                 if adapter_name not in self.secrets_cache:
                     self.secrets_cache[adapter_name] = {}
@@ -408,10 +297,123 @@ class InitCommand:
         
         return config
     
+    def _collect_standard_input(self, input_prompt: InputPrompt) -> any:
+        """Standard input collection logic for different input types
+        
+        Args:
+            input_prompt: The InputPrompt definition for this field
+        
+        Returns:
+            The collected value
+        """
+        if input_prompt.type == "boolean":
+            return Confirm.ask(input_prompt.prompt, default=input_prompt.default or False)
+        elif input_prompt.type == "choice":
+            return Prompt.ask(
+                input_prompt.prompt,
+                choices=input_prompt.choices,
+                default=input_prompt.default
+            )
+        elif input_prompt.type == "password":
+            while True:
+                value = Prompt.ask(input_prompt.prompt, password=True)
+                if value:
+                    value = value.strip()
+                    # Validate password fields if pattern provided
+                    if input_prompt.validation:
+                        import re
+                        # For RSA keys, accept both single-line and multi-line format
+                        if "RSA PRIVATE KEY" in input_prompt.validation:
+                            # Normalize: if single line, add newlines after headers
+                            if "\\n" not in value and "\n" not in value:
+                                value = value.replace("-----BEGIN RSA PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----\n")
+                                value = value.replace("-----END RSA PRIVATE KEY-----", "\n-----END RSA PRIVATE KEY-----")
+                        
+                        if not re.match(input_prompt.validation, value, re.DOTALL):
+                            self.console.print(f"[red]Invalid format. {input_prompt.help_text}[/red]")
+                            continue
+                    break
+                self.console.print("[red]This field is required[/red]")
+            return value
+        elif input_prompt.type == "json":
+            import json
+            while True:
+                value = Prompt.ask(input_prompt.prompt)
+                if value:
+                    try:
+                        return json.loads(value)
+                    except json.JSONDecodeError as e:
+                        self.console.print(f"[red]Invalid JSON: {e}[/red]")
+                else:
+                    self.console.print("[red]This field is required[/red]")
+        else:
+            # String type
+            while True:
+                prompt_text = input_prompt.prompt
+                if input_prompt.default:
+                    prompt_text = f"{input_prompt.prompt} [{input_prompt.default}]"
+                
+                value = Prompt.ask(prompt_text, default=str(input_prompt.default) if input_prompt.default else None)
+                if value:
+                    value = value.strip()
+                    # Validate against regex pattern if provided
+                    if input_prompt.validation:
+                        import re
+                        # Check if it's a comma-separated list OR field name ends with 's'
+                        if input_prompt.name.endswith("s"):
+                            # Always treat as list for plural field names
+                            if "," in value:
+                                items = [v.strip() for v in value.split(",")]
+                            else:
+                                items = [value.strip()]
+                            
+                            # Validate each item
+                            invalid_items = [v for v in items if not re.match(input_prompt.validation, v)]
+                            if invalid_items:
+                                self.console.print(f"[red]Invalid format for: {', '.join(invalid_items)}[/red]")
+                                self.console.print(f"[red]Expected: {input_prompt.help_text or input_prompt.validation}[/red]")
+                                continue
+                            return items
+                        else:
+                            # Single value validation
+                            if not re.match(input_prompt.validation, value):
+                                self.console.print(f"[red]Invalid format. Expected: {input_prompt.help_text or input_prompt.validation}[/red]")
+                                continue
+                    else:
+                        # No validation, just parse comma-separated lists for plural fields
+                        if input_prompt.name.endswith("s"):
+                            if "," in value:
+                                return [v.strip() for v in value.split(",")]
+                            else:
+                                return [value.strip()]
+                    return value
+                self.console.print("[red]This field is required[/red]")
+    
+    def _get_secret_fields(self, config_model) -> set:
+        """Extract SecretStr field names from config model
+        
+        Args:
+            config_model: Pydantic model class for adapter configuration
+        
+        Returns:
+            Set of field names that are marked as SecretStr
+        """
+        secret_fields = set()
+        if config_model:
+            for field_name, field_info in config_model.model_fields.items():
+                from pydantic import SecretStr
+                if field_info.annotation == SecretStr or (
+                    hasattr(field_info.annotation, '__origin__') and 
+                    field_info.annotation.__origin__ == SecretStr
+                ):
+                    secret_fields.add(field_name)
+        return secret_fields
+    
     def _write_platform_yaml(self):
         """Write platform.yaml configuration (excluding secrets)"""
         platform_data = {
             "version": "1.0",
+            "platform": self.platform_config,
             "adapters": self.config
         }
         
@@ -428,6 +430,7 @@ class InitCommand:
         
         import os
         import stat
+        import configparser
         
         # Create ~/.ztc directory
         secrets_dir = Path.home() / ".ztc"
@@ -435,22 +438,26 @@ class InitCommand:
         
         secrets_file = secrets_dir / "secrets"
         
-        # Write secrets in INI format (like AWS credentials)
-        with open(secrets_file, "w") as f:
-            for adapter_name, secrets in self.secrets_cache.items():
-                f.write(f"[{adapter_name}]\n")
-                for key, value in secrets.items():
-                    # Handle multi-line values (like RSA keys)
-                    if "\n" in str(value):
-                        # Base64 encode multi-line values for safe storage
-                        import base64
-                        encoded = base64.b64encode(value.encode()).decode()
-                        f.write(f"{key} = base64:{encoded}\n")
-                    else:
-                        f.write(f"{key} = {value}\n")
-                f.write("\n")
+        # Use ConfigParser to write properly formatted INI file
+        config = configparser.ConfigParser()
         
-        # Set file permissions to 600 (user read/write only)
+        for adapter_name, secrets in self.secrets_cache.items():
+            config[adapter_name] = {}
+            for key, value in secrets.items():
+                # Handle multi-line values (like RSA keys)
+                if "\n" in str(value):
+                    # Base64 encode multi-line values for safe storage
+                    import base64
+                    encoded = base64.b64encode(value.encode()).decode()
+                    config[adapter_name][key] = f"base64:{encoded}"
+                else:
+                    config[adapter_name][key] = str(value)
+        
+        # Write with ConfigParser to ensure proper formatting
+        with open(secrets_file, "w") as f:
+            config.write(f, space_around_delimiters=True)
+        
+        # Set restrictive permissions (600)
         os.chmod(secrets_file, stat.S_IRUSR | stat.S_IWUSR)
     
     def _execute_init_scripts(self, adapter_name: str):

@@ -108,6 +108,42 @@ class TalosAdapter(PlatformAdapter):
             )
         ]
     
+    def collect_field_value(self, input_prompt: InputPrompt, current_config: Dict[str, Any]) -> Any:
+        """Custom collection for Talos-specific fields"""
+        from rich.console import Console
+        from rich.prompt import Prompt
+        import questionary
+        
+        # Iterative collection for nodes based on Hetzner IPs
+        if input_prompt.name == "nodes":
+            console = Console()
+            nodes = []
+            server_ips = self.get_cross_adapter_config("hetzner", "server_ips")
+            
+            if not server_ips:
+                console.print("[red]No server IPs found from Hetzner config[/red]")
+                return []
+            
+            for ip in server_ips:
+                console.print(f"\n[cyan]Configure server: {ip}[/cyan]")
+                
+                while True:
+                    name = Prompt.ask(f"Server name for {ip} (e.g., cp01, worker01)").strip()
+                    if name:
+                        break
+                    console.print("[red]Server name is required[/red]")
+                
+                role = questionary.select(
+                    f"Role for {ip}:",
+                    choices=["controlplane", "worker"]
+                ).ask()
+                
+                nodes.append({"name": name, "ip": ip, "role": role})
+            
+            return nodes
+        
+        return None  # Use default collection
+    
     def pre_work_scripts(self) -> List[ScriptReference]:
         """Return pre-work scripts"""
         return []

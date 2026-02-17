@@ -180,51 +180,11 @@ def render(
     partial: Optional[List[str]] = typer.Option(None, "--partial", help="Render specific adapters")
 ):
     """Generate platform artifacts from platform.yaml"""
-    from ztc.engine import PlatformEngine
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
-    
-    console.print("[bold blue]Rendering platform artifacts...[/bold blue]")
-    
-    if debug:
-        console.print("[yellow]Debug mode enabled - workspace will be preserved on failure[/yellow]")
-    
-    if partial:
-        console.print(f"[yellow]Partial render: {', '.join(partial)}[/yellow]")
-    
-    # Check if platform.yaml exists (try new location first)
-    platform_yaml = Path("platform/platform.yaml")
-    if not platform_yaml.exists():
-        platform_yaml = Path("platform.yaml")  # Fallback to old location
-    
-    if not platform_yaml.exists():
-        console.print("[red]Error: platform/platform.yaml not found[/red]")
-        console.print("Run 'ztc init' to create platform configuration")
-        raise typer.Exit(1)
+    from ztc.commands.render import RenderCommand
     
     try:
-        # Create engine
-        engine = PlatformEngine(platform_yaml, debug=debug)
-        
-        # Run render with progress indicator
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=console
-        ) as progress:
-            task = progress.add_task("Rendering...", total=None)
-            
-            def update_progress(description: str):
-                progress.update(task, description=description)
-            
-            asyncio.run(engine.render(partial=partial, progress_callback=update_progress))
-        
-        console.print("[green]✓[/green] Render completed successfully")
-        console.print(f"Artifacts written to: platform/generated/")
-        console.print(f"Lock file: platform/lock.json")
-        console.print(f"[dim]Logs: .zerotouch-cache/render-logs/[/dim]")
-        
+        render_cmd = RenderCommand(console, debug=debug, partial=partial)
+        render_cmd.execute()
     except ZTCError as e:
         handle_ztc_error(e)
     except Exception as e:
@@ -295,12 +255,11 @@ def eject(
     - Understanding script execution flow
     - Customizing scripts for edge cases
     """
-    from ztc.workflows.eject import EjectWorkflow
+    from ztc.commands.eject import EjectCommand
     
     try:
-        workflow = EjectWorkflow(console, Path(output_dir), env)
-        workflow.run()
-        
+        eject_cmd = EjectCommand(console, output_dir, env)
+        eject_cmd.execute()
     except ZTCError as e:
         handle_ztc_error(e)
     except FileNotFoundError as e:

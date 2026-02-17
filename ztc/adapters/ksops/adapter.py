@@ -125,6 +125,26 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
             )
         ]
     
+    def derive_field_value(self, field_name: str, current_config: Dict[str, Any]) -> Any:
+        """Extract s3_region from s3_endpoint"""
+        if field_name == "s3_region" and "s3_endpoint" in current_config:
+            import re
+            endpoint = current_config["s3_endpoint"]
+            # Extract region from URL like https://fsn1.your-objectstorage.com
+            match = re.search(r'https?://([^.]+)\.', endpoint)
+            if match:
+                return match.group(1)
+        return None
+    
+    def get_field_suggestion(self, field_name: str) -> str:
+        """Generate suggestions for KSOPS fields"""
+        app_name = self._platform_metadata.get('app_name', '')
+        
+        if field_name == "s3_bucket_name" and app_name:
+            return f"{app_name}-bucket"
+        
+        return None
+    
     def pre_work_scripts(self) -> List[ScriptReference]:
         """Pre-work scripts (automated pre-installation)"""
         config = KSOPSConfig(**self.config)

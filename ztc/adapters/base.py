@@ -142,6 +142,8 @@ class PlatformAdapter(ABC):
         self.name = self.load_metadata()["name"]
         self.phase = self.load_metadata()["phase"]
         self._jinja_env = jinja_env  # Shared environment from Engine
+        self._platform_metadata: Dict[str, Any] = {}  # Store platform metadata (app_name, organization)
+        self._all_adapters_config: Dict[str, Dict[str, Any]] = {}  # Store all adapters' config
     
     @property
     @abstractmethod
@@ -304,3 +306,133 @@ class PlatformAdapter(ABC):
         import yaml
         metadata_path = Path(__file__).parent / "adapter.yaml"
         return yaml.safe_load(metadata_path.read_text())
+    
+    # Input Collection Customization Methods
+    
+    def set_platform_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Set platform metadata (app_name, organization) for use in suggestions
+        
+        Args:
+            metadata: Dictionary containing platform metadata like app_name and organization
+        
+        Example:
+            adapter.set_platform_metadata({"app_name": "myapp", "organization": "myorg"})
+        """
+        self._platform_metadata = metadata
+    
+    def set_all_adapters_config(self, config: Dict[str, Dict[str, Any]]) -> None:
+        """Set configuration from all adapters for cross-adapter dependencies
+        
+        Args:
+            config: Dictionary mapping adapter names to their configurations
+        
+        Example:
+            adapter.set_all_adapters_config({"github": {"control_plane_repo_url": "..."}})
+        """
+        self._all_adapters_config = config
+    
+    def should_skip_field(self, field_name: str, current_config: Dict[str, Any]) -> bool:
+        """Determine if a field should be skipped based on conditions
+        
+        Args:
+            field_name: Name of the field being collected
+            current_config: Configuration collected so far for this adapter
+        
+        Returns:
+            True if field should be skipped, False otherwise
+        
+        Example:
+            def should_skip_field(self, field_name, current_config):
+                if field_name == "bgp_asn" and not current_config.get("bgp_enabled"):
+                    return True
+                return False
+        """
+        return False  # Default: never skip
+    
+    def derive_field_value(self, field_name: str, current_config: Dict[str, Any]) -> Optional[Any]:
+        """Derive a field's value from other fields or adapters
+        
+        Args:
+            field_name: Name of the field being collected
+            current_config: Configuration collected so far for this adapter
+        
+        Returns:
+            Derived value if derivable, None if should prompt user
+        
+        Example:
+            def derive_field_value(self, field_name, current_config):
+                if field_name == "s3_region" and "s3_endpoint" in current_config:
+                    match = re.search(r'https?://([^.]+)\.', current_config["s3_endpoint"])
+                    if match:
+                        return match.group(1)
+                return None
+        """
+        return None  # Default: no derivation
+    
+    def get_field_suggestion(self, field_name: str) -> Optional[str]:
+        """Generate a suggestion for a field based on platform metadata
+        
+        Args:
+            field_name: Name of the field being collected
+        
+        Returns:
+            Suggested value as a string, or None if no suggestion
+        
+        Example:
+            def get_field_suggestion(self, field_name):
+                app_name = self._platform_metadata.get('app_name', '')
+                if field_name == "s3_bucket_name" and app_name:
+                    return f"{app_name}-bucket"
+                return None
+        """
+        return None  # Default: no suggestion
+    
+    def collect_field_value(self, input_prompt: InputPrompt, current_config: Dict[str, Any]) -> Any:
+        """Collect a field value with custom logic
+        
+        Args:
+            input_prompt: The InputPrompt definition for this field
+            current_config: Configuration collected so far for this adapter
+        
+        Returns:
+            The collected value, or None to signal init.py should use standard collection logic
+        
+        Note:
+            Override this method for special input handling (e.g., loading from files,
+            iterative collection, custom validation). Default implementation returns None
+            to signal init.py should use standard collection logic.
+        
+        Example:
+            def collect_field_value(self, input_prompt, current_config):
+                if input_prompt.name == "github_app_private_key":
+                    # Load from .env.global file
+                    return self._load_from_env_global("GIT_APP_PRIVATE_KEY")
+                return None  # Use default collection
+        """
+        return None  # Default: use standard collection logic
+    
+    def get_cross_adapter_config(self, adapter_name: str, field_name: Optional[str] = None) -> Optional[Any]:
+        """Access configuration from another adapter
+        
+        Args:
+            adapter_name: Name of the adapter to get config from
+            field_name: Specific field to get, or None for entire config
+        
+        Returns:
+            Configuration value, or None if not available
+        
+        Example:
+            def derive_field_value(self, field_name, current_config):
+                if field_name == "platform_repo_url":
+                    github_url = self.get_cross_adapter_config("github", "control_plane_repo_url")
+                    if github_url:
+                        return f"{github_url}.git"
+                return None
+        """
+        if adapter_name not in self._all_adapters_config:
+            return None
+        
+        adapter_config = self._all_adapters_config[adapter_name]
+        if field_name is None:
+            return adapter_config
+        return adapter_config.get(field_name)

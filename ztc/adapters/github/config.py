@@ -24,9 +24,14 @@ class GitHubConfig(BaseModel):
         description="GitHub App RSA private key"
     )
     
-    tenant_repo_url: str = Field(
+    control_plane_repo_url: str = Field(
         ...,
-        description="GitHub repository URL (e.g., https://github.com/org/repo)"
+        description="Control plane repository URL (infrastructure/platform manifests)"
+    )
+    
+    data_plane_repo_url: str = Field(
+        ...,
+        description="Data plane repository URL (tenant/application configs)"
     )
     
     @field_validator("github_app_private_key")
@@ -40,7 +45,7 @@ class GitHubConfig(BaseModel):
             raise ValueError("Private key must end with '-----END RSA PRIVATE KEY-----'")
         return v
     
-    @field_validator("tenant_repo_url")
+    @field_validator("control_plane_repo_url", "data_plane_repo_url")
     @classmethod
     def validate_github_url(cls, v: str) -> str:
         """Validate GitHub repository URL format and extract org/repo"""

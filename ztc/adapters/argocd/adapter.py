@@ -59,8 +59,66 @@ class ArgocdAdapter(PlatformAdapter):
                 type="string",
                 default="argocd",
                 help_text="Kubernetes namespace for ArgoCD"
+            ),
+            InputPrompt(
+                name="platform_repo_url",
+                prompt="Platform Repository URL (with .git suffix)",
+                type="string",
+                validation=r"^https://github\.com/.+\.git$",
+                help_text="Git repository URL for platform manifests"
+            ),
+            InputPrompt(
+                name="platform_repo_branch",
+                prompt="Platform Repository Branch",
+                type="string",
+                default="main",
+                help_text="Git branch to track"
+            ),
+            InputPrompt(
+                name="overlay_environment",
+                prompt="Overlay Environment",
+                type="choice",
+                choices=["main", "preview", "dev"],
+                default="main",
+                help_text="Kustomize overlay environment"
+            ),
+            InputPrompt(
+                name="admin_password",
+                prompt="Admin Password",
+                type="password",
+                help_text="ArgoCD admin password (min 8 characters)"
+            ),
+            InputPrompt(
+                name="mode",
+                prompt="Deployment Mode",
+                type="choice",
+                choices=["production", "preview"],
+                default="production",
+                help_text="ArgoCD deployment mode"
             )
         ]
+    
+    def derive_field_value(self, field_name: str, current_config: Dict[str, Any]) -> Any:
+        """Derive values from other adapters"""
+        # Get platform_repo_url from GitHub adapter
+        if field_name == "platform_repo_url":
+            github_url = self.get_cross_adapter_config("github", "control_plane_repo_url")
+            if github_url:
+                # Add .git suffix if not present
+                if not github_url.endswith(".git"):
+                    return f"{github_url}.git"
+                return github_url
+        
+        # Auto-generate admin_password
+        if field_name == "admin_password":
+            import secrets
+            import string
+            # Generate 16-character password with letters, digits, and special chars
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+            password = ''.join(secrets.choice(alphabet) for _ in range(16))
+            return password
+        
+        return None
     
     def pre_work_scripts(self) -> List[ScriptReference]:
         """Pre-work scripts (CLI installation)"""

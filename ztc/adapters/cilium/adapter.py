@@ -84,6 +84,12 @@ class CiliumAdapter(PlatformAdapter):
             )
         ]
     
+    def should_skip_field(self, field_name: str, current_config: Dict[str, Any]) -> bool:
+        """Skip bgp_asn if BGP not enabled"""
+        if field_name == "bgp_asn" and not current_config.get("bgp_enabled", False):
+            return True
+        return False
+    
     def get_invalid_fields(self, current_config: Dict, full_platform_context: Dict) -> List[str]:
         """Return fields invalid due to upstream context changes"""
         invalid = []
