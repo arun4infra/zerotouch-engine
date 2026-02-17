@@ -7,7 +7,9 @@ This implementation plan follows a user journey approach, building the MCP Workf
 ## Tasks
 
 - [ ] 1. Set up project structure and core data models
-  - Create `ztc/mcp_workflow_engine/` directory structure
+  - Create `workflow_engine/` directory structure with `core/`, `models/`, `parser/`, `validation/`, `storage/`, `secrets/`, `adapters/` subdirectories
+  - Create `mcp/` directory structure with `server/`, `storage/`, `observer/` subdirectories
+  - Create `cli/` directory structure with presentation layer modules
   - Implement core data models: `Entry`, `EntryData`, `QuestionNode`, `ValidationRules`, `WorkflowDSL`
   - Implement `QuestionPathFeedback` as frozen dataclass with serialization methods
   - Implement `QuestionPathLevelTracker` with state tracking fields
@@ -227,12 +229,15 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - Ensure all tests pass, ask the user if questions arise
 
 - [ ] 17. Implement adapter integration layer
-  - Create `AdapterQuestionTranslator` class
+  - Move all adapter logic from `ztc/adapters/` to `workflow_engine/adapters/`
+  - Move `PlatformAdapter` base class to `workflow_engine/adapters/base.py`
+  - Move `AdapterRegistry` to `workflow_engine/adapters/registry.py`
+  - Move all existing adapters (Hetzner, Cilium, etc.) to `workflow_engine/adapters/`
+  - Create `AdapterQuestionTranslator` class in `workflow_engine/adapters/translator.py`
   - Implement `translate_input_prompt()` method for InputPrompt → QuestionNode conversion
   - Implement type mapping between InputPrompt and workflow DSL types
-  - Create `AdapterWorkflowGenerator` class
+  - Create `AdapterWorkflowGenerator` class in `workflow_engine/adapters/generator.py`
   - Implement `generate_workflow_from_adapters()` method
-  - Integrate with existing AdapterRegistry from zerotouch-engine
   - Implement PlatformContext construction from session answers
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.7, 9.11_
 
@@ -334,14 +339,18 @@ This implementation plan follows a user journey approach, building the MCP Workf
   - Ensure all tests pass, ask the user if questions arise
 
 - [ ] 26. Implement CLI client with FilesystemStore
-  - Create CLI client using Click framework
-  - Implement `ztc workflow start` command
-  - Implement `ztc workflow answer` command
-  - Implement `ztc workflow restore` command
-  - Implement `ztc workflow restart` command
-  - Integrate FilesystemStore for `.ztc/session.json` persistence
+  - Create CLI presentation layer in `cli/` directory
+  - **Reference existing CLI patterns**: Study `zerotouch-engine/ztc/commands/` and `zerotouch-engine/ztc/workflows/` for CLI layer best practices (Typer usage, error formatting, user interaction patterns)
+  - Implement `cli/workflow_commands.py` with Typer commands for workflow lifecycle
+  - Implement `ztc workflow start` command (presentation only - calls MCP server)
+  - Implement `ztc workflow answer` command (presentation only - calls MCP server)
+  - Implement `ztc workflow restore` command (presentation only - calls MCP server)
+  - Implement `ztc workflow restart` command (presentation only - calls MCP server)
+  - Create `cli/formatters.py` for error/info text formatting (follow patterns from `ztc/commands/`)
+  - Create `cli/display.py` for visual representation of server responses (follow patterns from `ztc/commands/`)
+  - Integrate FilesystemStore for `.ztc/session.json` persistence (client-side)
   - Add JSON-RPC client for MCP server communication
-  - Implement event notification display
+  - Implement event notification display formatting
   - _Requirements: 2.2, 2.4, 6.1, 6.2, 6.3, 6.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
 - [ ] 27. Implement error handling and formatting
@@ -412,3 +421,8 @@ This implementation plan follows a user journey approach, building the MCP Workf
 - Validate artifacts produced by the system (serialized state, workflow responses, file contents)
 - Verify observable behavior (questions presented, answers accepted, state transitions)
 - Check integration points (adapter loading, MCP protocol compliance, session restoration)
+
+**CLI Implementation Reference:**
+- Study `zerotouch-engine/ztc/commands/` for CLI layer patterns (Typer usage, error handling, user prompts)
+- Study `zerotouch-engine/ztc/workflows/` for workflow command patterns
+- Focus on presentation layer only - CLI should format and display data from MCP server

@@ -12,42 +12,45 @@ The engine integrates with existing zerotouch-engine adapters (Hetzner, ArgoCD, 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        CLI Client                            │
+│                   CLI (Presentation Layer)                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ FilesystemStore│  │ JSON-RPC     │  │ Session State    │  │
-│  │ (.ztc/session) │  │ Client       │  │ Management       │  │
+│  │ Typer Commands│  │ Formatters   │  │ Display Logic    │  │
+│  │ (Lifecycle)   │  │ (Errors/Info)│  │ (Visual Output)  │  │
 │  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐                         │
+│  │ FilesystemStore│  │ JSON-RPC     │                         │
+│  │ (.ztc/session) │  │ Client       │                         │
+│  └──────────────┘  └──────────────┘                         │
 └─────────────────────────────────────────────────────────────┘
                             │
                             │ stdio/HTTP transport
                             │ (JSON-RPC messages)
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      MCP Server (Stateless)                  │
+│                   MCP (Protocol Layer)                       │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Workflow Engine Core                     │   │
-│  │  ┌────────────────────┐  ┌──────────────────────┐   │   │
-│  │  │ QuestionPath       │  │ Observer Pattern     │   │   │
-│  │  │ Traverser          │  │ (Event Notifications)│   │   │
-│  │  └────────────────────┘  └──────────────────────┘   │   │
-│  │  ┌────────────────────┐  ┌──────────────────────┐   │   │
-│  │  │ Automatic Answer   │  │ Deferred Operations  │   │   │
-│  │  │ Provider           │  │ Registry             │   │   │
-│  │  └────────────────────┘  └──────────────────────┘   │   │
+│  │  MCPServer │ JSON-RPC Parser │ Transports │ Observer │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            │ Function calls
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Workflow Engine (Core + Adapters)               │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                   Core Components                     │   │
+│  │  QuestionPathTraverser │ Observer │ Deferred Ops     │   │
+│  │  AutomaticAnswer │ LevelTracker │ Feedback          │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Adapter Integration Layer                │   │
-│  │  ┌────────────────────┐  ┌──────────────────────┐   │   │
-│  │  │ AdapterRegistry    │  │ InputPrompt →        │   │   │
-│  │  │ Loader             │  │ Question Translator  │   │   │
-│  │  └────────────────────┘  └──────────────────────┘   │   │
+│  │              Models & Parsing                         │   │
+│  │  Entry │ EntryData │ WorkflowDSL │ Validation       │   │
+│  │  DSL Parser │ Expression Evaluator │ SecretResolver  │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Workflow DSL Parser                      │   │
-│  │  ┌────────────────────┐  ┌──────────────────────┐   │   │
-│  │  │ YAML Parser        │  │ Pydantic Validation  │   │   │
-│  │  │ (PyYAML)           │  │ (Schema Enforcement) │   │   │
-│  │  └────────────────────┘  └──────────────────────┘   │   │
+│  │              Adapter Integration                      │   │
+│  │  PlatformAdapter │ AdapterRegistry │ Translator      │   │
+│  │  Hetzner │ Cilium │ ArgoCD │ GitHub │ ... (all)     │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
