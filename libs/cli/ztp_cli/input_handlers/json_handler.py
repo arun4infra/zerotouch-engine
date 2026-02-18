@@ -70,8 +70,6 @@ async def _collect_nodes_from_ips(server_ips: list, console: Console) -> list:
             raise KeyboardInterrupt("Selection cancelled")
         
         nodes.append({"name": name, "ip": ip, "role": role})
-        
-        nodes.append({"name": name, "ip": ip, "role": role})
     
     return nodes
 

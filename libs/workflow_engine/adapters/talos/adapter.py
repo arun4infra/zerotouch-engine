@@ -86,20 +86,20 @@ class TalosAdapter(PlatformAdapter):
                 default="376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba",
                 help_text="Custom Talos image with embedded extensions"
             ),
-            # InputPrompt(
-            #     name="cluster_name",
-            #     prompt="Cluster name (e.g., kube-prod)",
-            #     type="string",
-            #     validation=r"^[a-z0-9-]+$",
-            #     help_text="Alphanumeric + hyphens only"
-            # ),
-            # InputPrompt(
-            #     name="cluster_endpoint",
-            #     prompt="Cluster API endpoint",
-            #     type="string",
-            #     validation=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$",
-            #     help_text="Format: IP:PORT (e.g., 46.62.218.181:6443)"
-            # ),
+            InputPrompt(
+                name="cluster_name",
+                prompt="Cluster name (e.g., kube-prod)",
+                type="string",
+                validation=r"^[a-z0-9-]+$",
+                help_text="Alphanumeric + hyphens only"
+            ),
+            InputPrompt(
+                name="cluster_endpoint",
+                prompt="Cluster API endpoint",
+                type="string",
+                validation=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$",
+                help_text="Format: IP:PORT (e.g., 46.62.218.181:6443)"
+            ),
             InputPrompt(
                 name="nodes",
                 prompt="Node definitions (JSON array)",
@@ -133,12 +133,17 @@ class TalosAdapter(PlatformAdapter):
         # Iterative collection for nodes based on Hetzner IPs
         if input_prompt.name == "nodes":
             console = Console()
+            console.print("[yellow]DEBUG: derive_field_value called for nodes[/yellow]")
             nodes = []
             server_ips = self.get_cross_adapter_config("hetzner", "server_ips")
             
             if not server_ips:
                 console.print("[red]No server IPs found from Hetzner config[/red]")
                 return []
+            
+            # Deduplicate IPs
+            server_ips = list(dict.fromkeys(server_ips))
+            console.print(f"[yellow]DEBUG: Processing {len(server_ips)} unique IPs[/yellow]")
             
             for ip in server_ips:
                 console.print(f"\n[cyan]Configure server: {ip}[/cyan]")
@@ -156,6 +161,7 @@ class TalosAdapter(PlatformAdapter):
                 
                 nodes.append({"name": name, "ip": ip, "role": role})
             
+            console.print(f"[yellow]DEBUG: Returning {len(nodes)} nodes: {nodes}[/yellow]")
             return nodes
         
         return None  # Use default collection

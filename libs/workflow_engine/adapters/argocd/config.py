@@ -11,8 +11,8 @@ class ArgoCDConfig(BaseModel):
     platform_repo_url: str = Field(..., pattern=r"^https://github\.com/.+\.git$")
     platform_repo_branch: str = Field(default="main", min_length=1)
     overlay_environment: str = Field(..., pattern=r"^(main|preview|dev)$")
-    admin_password: SecretStr = Field(..., min_length=8)
-    mode: str = Field(..., pattern=r"^(production|preview)$")
+    admin_password: SecretStr = Field(default=None)
+    mode: str = Field(default="production", pattern=r"^(production|preview)$")
 
     @field_validator("version")
     @classmethod

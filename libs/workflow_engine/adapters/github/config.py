@@ -34,6 +34,12 @@ class GitHubConfig(BaseModel):
         description="Data plane repository URL (tenant/application configs)"
     )
     
+    @field_validator("github_app_id", "github_app_installation_id", mode="before")
+    @classmethod
+    def coerce_to_string(cls, v):
+        """Convert integers to strings"""
+        return str(v) if v is not None else v
+    
     @field_validator("github_app_private_key")
     @classmethod
     def validate_private_key_format(cls, v: SecretStr) -> SecretStr:

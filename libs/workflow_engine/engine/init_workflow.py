@@ -397,7 +397,15 @@ class InitWorkflow:
             if field_type == SecretStr or (hasattr(field_type, '__origin__') and field_type.__origin__ == SecretStr):
                 continue
             
-            if isinstance(field_value, str):
+            # Handle List types
+            if hasattr(field_type, '__origin__') and field_type.__origin__ == list:
+                if isinstance(field_value, str):
+                    # Convert comma-separated string to list
+                    if ',' in field_value:
+                        field_value = [v.strip() for v in field_value.split(',')]
+                    else:
+                        field_value = [field_value]
+            elif isinstance(field_value, str):
                 if field_value.startswith('[') or field_value.startswith('{'):
                     try:
                         field_value = json.loads(field_value)

@@ -12,6 +12,18 @@ class CrossplaneConfig(BaseModel):
     enable_composition_revisions: bool = Field(default=True)
     mode: str = Field(..., pattern=r"^(production|preview)$")
     providers: List[str] = Field(default_factory=lambda: ["kubernetes"])
+    
+    @field_validator("providers", mode="before")
+    @classmethod
+    def parse_providers(cls, v):
+        """Parse providers from string or list"""
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except:
+                return [v]
+        return v if v else ["kubernetes"]
 
     @field_validator("version")
     @classmethod

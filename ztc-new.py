@@ -9,7 +9,7 @@ cli_path = Path(__file__).parent / "libs" / "cli"
 sys.path.insert(0, str(libs_path))
 sys.path.insert(0, str(cli_path))
 
-from ztp_cli.workflow_commands import app
+from ztp_cli.core_commands import app
 
 if __name__ == "__main__":
     app()
