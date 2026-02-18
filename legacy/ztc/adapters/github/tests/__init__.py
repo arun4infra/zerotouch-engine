@@ -1,1 +1,0 @@
-"""GitHub adapter tests"""

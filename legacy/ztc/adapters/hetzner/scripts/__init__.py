@@ -1,1 +1,0 @@
-"""Hetzner adapter scripts"""

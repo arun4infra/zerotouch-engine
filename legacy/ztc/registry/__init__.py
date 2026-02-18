@@ -1,1 +1,0 @@
-"""Adapter registry for ZTC"""

@@ -1,1 +1,0 @@
-"""Talos OS adapter"""
