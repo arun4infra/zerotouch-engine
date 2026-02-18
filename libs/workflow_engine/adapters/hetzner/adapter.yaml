@@ -2,6 +2,7 @@ name: hetzner
 version: 1.0.0
 phase: foundation
 selection_group: cloud_provider
+group_order: 1
 is_default: true
 group_prompt: "Select cloud provider"
 group_help: "Infrastructure provider for bare-metal servers"

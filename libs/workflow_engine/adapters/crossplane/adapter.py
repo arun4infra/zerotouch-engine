@@ -201,7 +201,7 @@ class CrossplaneAdapter(PlatformAdapter):
             manifests[f"argocd/overlays/main/foundation/provider-{provider}.yaml"] = await provider_template.render_async(**template_ctx)
         
         # Import capability model
-        from workflow_engine.adapters.capabilities import InfrastructureProvisioningCapability
+        from workflow_engine.interfaces.capabilities import InfrastructureProvisioningCapability
         
         # Infrastructure provisioning capability data
         capability_data = {

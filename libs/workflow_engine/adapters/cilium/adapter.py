@@ -12,7 +12,7 @@ from workflow_engine.adapters.base import (
     ScriptReference,
     AdapterOutput,
 )
-from workflow_engine.adapters.capabilities import CNIArtifacts, GatewayAPICapability
+from workflow_engine.interfaces.capabilities import CNIArtifacts, GatewayAPICapability
 
 
 class BGPConfig(BaseModel):
@@ -224,6 +224,7 @@ class CiliumAdapter(PlatformAdapter):
                 "version": "1.0.0",
                 "phase": "networking",
                 "selection_group": "network_tool",
+                "group_order": 5,
                 "is_default": True,
                 "provides": [
                     {"capability": "cni", "version": "v1.0"},

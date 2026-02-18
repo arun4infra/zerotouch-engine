@@ -22,6 +22,12 @@ from workflow_engine.engine.context import (
     AdapterNotExecutedError,
     CapabilityConflictError,
 )
+from workflow_engine.engine.init_workflow import InitWorkflow
+from workflow_engine.engine.input_processing_chain import (
+    InputProcessingChain,
+    InputProcessingHandler,
+    ProcessingResult,
+)
 
 __all__ = [
     "DependencyResolver",
@@ -38,4 +44,8 @@ __all__ = [
     "CapabilityNotFoundError",
     "AdapterNotExecutedError",
     "CapabilityConflictError",
+    "InitWorkflow",
+    "InputProcessingChain",
+    "InputProcessingHandler",
+    "ProcessingResult",
 ]

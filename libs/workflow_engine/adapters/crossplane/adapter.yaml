@@ -2,6 +2,7 @@ name: crossplane
 version: 1.0.0
 phase: foundation
 selection_group: infrastructure_provisioner
+group_order: 7
 is_default: false
 group_prompt: "Select infrastructure provisioning platform"
 group_help: "Universal control plane for cloud-native infrastructure provisioning"

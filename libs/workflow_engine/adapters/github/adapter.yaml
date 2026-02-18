@@ -2,6 +2,7 @@ name: github
 version: 1.0.0
 phase: git_provider
 selection_group: git_provider
+group_order: 2
 is_default: true
 group_prompt: "Select Git provider"
 group_help: "Git provider for ArgoCD authentication and tenant repository access"

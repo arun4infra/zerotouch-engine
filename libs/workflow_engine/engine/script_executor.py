@@ -49,10 +49,13 @@ class ScriptExecutor:
         with tempfile.TemporaryDirectory(prefix="ztc-script-") as temp_dir:
             temp_path = Path(temp_dir)
             
-            # Copy script
-            script_path = temp_path / Path(script_ref.resource.value).name
-            script_path.write_text(script_file.read_text())
-            script_path.chmod(0o755)
+            # Copy entire scripts directory tree to preserve relative paths for sourcing
+            if files.is_dir():
+                self._copy_scripts_recursive(files, temp_path)
+            
+            # Get path to main script
+            script_rel_path = Path(script_ref.resource.value)
+            script_path = temp_path / script_rel_path
             
             # Write context
             context_file = temp_path / "context.json"
@@ -139,4 +142,31 @@ Exit Code: {result.exit_code}
 === STDERR ===
 {result.stderr}
 """
-        log_path.write_text(log_content)
+        
+        try:
+            log_path.write_text(log_content)
+        except Exception as e:
+            # Don't fail execution if logging fails
+            print(f"Warning: Failed to write execution log: {e}")
+    
+    def _copy_scripts_recursive(self, source_dir, dest_dir: Path):
+        """Recursively copy all script files preserving directory structure
+        
+        Args:
+            source_dir: Source directory (importlib.resources traversable)
+            dest_dir: Destination directory path
+        """
+        for item in source_dir.iterdir():
+            if item.is_file() and (item.name.endswith('.sh') or item.name.endswith('.py') or item.name.endswith('.j2')):
+                dest_file = dest_dir / item.name
+                dest_file.write_text(item.read_text())
+                # Only set executable for scripts, not templates
+                if item.name.endswith('.sh') or item.name.endswith('.py'):
+                    dest_file.chmod(0o755)
+                else:
+                    dest_file.chmod(0o644)
+            elif item.is_dir():
+                # Create subdirectory and recurse
+                sub_dest = dest_dir / item.name
+                sub_dest.mkdir(exist_ok=True)
+                self._copy_scripts_recursive(item, sub_dest)

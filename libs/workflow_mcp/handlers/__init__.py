@@ -5,6 +5,7 @@ from workflow_mcp.handlers.platform_handler import PlatformHandler
 from workflow_mcp.handlers.render_handler import RenderHandler
 from workflow_mcp.handlers.bootstrap_handler import BootstrapHandler
 from workflow_mcp.handlers.validation_handler import ValidationHandler
+from workflow_mcp.handlers.init_handler import InitWorkflowHandler
 
 __all__ = [
     "AdapterHandler",
@@ -12,4 +13,5 @@ __all__ = [
     "RenderHandler",
     "BootstrapHandler",
     "ValidationHandler",
+    "InitWorkflowHandler",
 ]

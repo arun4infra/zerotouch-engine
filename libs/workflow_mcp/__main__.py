@@ -1,37 +1,31 @@
 """MCP Server entry point for workflow engine"""
-import asyncio
-import sys
+import argparse
 from pathlib import Path
-from typing import Optional
 
 from workflow_mcp.workflow_server.mcp_server import WorkflowMCPServer
 
 
 def main() -> None:
     """Main entry point for MCP server"""
-    # Parse command line arguments
-    transport = "stdio"  # Default to stdio
-    host: Optional[str] = None
-    port = 8000
+    parser = argparse.ArgumentParser(description="Workflow MCP Server")
+    parser.add_argument("--allow-write", action="store_true", help="Allow write operations (render, bootstrap)")
+    parser.add_argument("--http", action="store_true", help="Use HTTP transport instead of stdio")
+    parser.add_argument("--port", type=int, default=8000, help="HTTP port (default: 8000)")
+    parser.add_argument("--workflow-path", type=str, default="workflows", help="Base path for workflows")
     
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--http":
-            transport = "http"
-            if len(sys.argv) > 2:
-                port = int(sys.argv[2])
+    args = parser.parse_args()
     
-    # Get workflow base path from environment or use default
-    import os
-    workflow_base_path = Path(os.getenv("ZTC_WORKFLOW_BASE_PATH", "workflows"))
+    # Get workflow base path
+    workflow_base_path = Path(args.workflow_path)
     
-    # Initialize server
-    server = WorkflowMCPServer(workflow_base_path=workflow_base_path)
+    # Initialize server with allow_write flag
+    server = WorkflowMCPServer(workflow_base_path=workflow_base_path, allow_write=args.allow_write)
     
-    # Run server
-    if transport == "stdio":
-        asyncio.run(server.run_stdio())
+    # Run server (FastMCP handles async internally)
+    if args.http:
+        server.mcp.run(transport="streamable-http", port=args.port)
     else:
-        asyncio.run(server.run_http(host=host, port=port))
+        server.mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

@@ -1,106 +1,46 @@
 version: '1.0'
-hetzner:
-  version: v1.0.0
-  api_token: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-  server_ips:
-    - 95.216.151.243
+platform:
+  organization: leanmetal
+  app_name: leanmetal-zerotouch
+adapters:
+  hetzner:
+    version: v1.0.0
+    server_ips:
     - 46.62.218.181
-  rescue_mode_confirm: true
-
-cilium:
-  version: v1.18.5
-  bgp:
-    enabled: false
-
-talos:
-  version: v1.11.5
-  factory_image_id: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
-  cluster_name: bizmatters-dev-01
-  cluster_endpoint: 95.216.151.243:6443
-  nodes:
-    - name: cp01-main
-      ip: 95.216.151.243
-      role: controlplane
-    - name: worker01
+    rescue_mode_confirm: true
+  github:
+    github_app_id: '2870814'
+    github_app_installation_id: '110294723'
+    control_plane_repo_url: https://github.com/kiroagent00-debug/zerotouch-platform
+    data_plane_repo_url: https://github.com/kiroagent00-debug/zerotouch-tenant
+  ksops:
+    s3_endpoint: https://fsn1.your-objectstorage.com
+    s3_region: fsn1
+    s3_bucket_name: tenant-bucket4
+  talos:
+    version: v1.11.5
+    factory_image_id: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
+    cluster_name: cln1
+    cluster_endpoint: 46.62.218.181:6443
+    nodes:
+    - name: cp01
       ip: 46.62.218.181
-      role: worker
-  disk_device: /dev/sda
-
-ksops:
-  version: v1.0.0
-  age_public_key: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-  s3_access_key: placeholder_access_key
-  s3_secret_key: placeholder_secret_key
-  s3_endpoint: https://fsn1.your-objectstorage.com
-  s3_region: fsn1
-  s3_bucket_name: test-bucket
-  github_app_id: 123456
-  github_app_installation_id: 789012
-  github_app_private_key: "-----BEGIN RSA PRIVATE KEY-----\nplaceholder\n-----END RSA PRIVATE KEY-----"
-  tenant_org_name: test-org
-  tenant_repo_name: test-repo
-
-argocd:
-  version: v3.2.0
-  namespace: argocd
-  platform_repo_url: https://github.com/test-org/platform.git
-  platform_repo_branch: main
-  overlay_environment: main
-  admin_password: test-password-123
-  mode: production
-
-crossplane:
-  version: 1.16.0
-  namespace: crossplane-system
-  enable_composition_revisions: true
-  mode: production
-  providers:
-    - kubernetes
-
-cert-manager:
-  version: v1.19.2
-  namespace: cert-manager
-  enable_gateway_api: true
-  mode: production
-
-cnpg:
-  version: 0.27.0
-  namespace: cnpg-system
-  mode: production
-
-keda:
-  version: 2.18.1
-  namespace: keda
-  mode: production
-
-nats:
-  version: 1.2.6
-  namespace: nats
-  jetstream_file_store_size: 10Gi
-  jetstream_memory_store_size: 1Gi
-  mode: production
-
-external-dns:
-  version: 1.15.0
-  namespace: external-dns
-  provider: hetzner
-  mode: production
-
-gateway-api:
-  gateway_api_version: v1.4.1
-  domain: nutgraf.in
-  email: admin@nutgraf.in
-  hetzner_location: fsn1
-  mode: production
-
-agent-sandbox:
-  image_registry: us-central1-docker.pkg.dev/k8s-staging-images/agent-sandbox
-  image_tag: latest-main
-  namespace: agent-sandbox-system
-  mode: production
-
-agent-gateway:
-  image_tag: latest
-  namespace: platform-agent-gateway
-  domain: agentgateway.nutgraf.in
-  mode: production
+      role: controlplane
+  cilium:
+    version: v1.18.5
+    bgp_enabled: false
+  argocd:
+    version: v3.2.0
+    namespace: argocd
+    platform_repo_url: https://github.com/kiroagent00-debug/zerotouch-platform.git
+    platform_repo_branch: main
+    overlay_environment: main
+    admin_password: $7#i4kbGFc&tSVGD
+    mode: production
+  crossplane:
+    version: 1.16.0
+    namespace: crossplane-system
+    enable_composition_revisions: true
+    mode: production
+    providers: 
+      - kubernetes

@@ -23,6 +23,7 @@ from workflow_mcp.handlers import (
     RenderHandler,
     BootstrapHandler,
     ValidationHandler,
+    InitWorkflowHandler,
 )
 
 
@@ -56,6 +57,7 @@ class WorkflowMCPServer:
         RenderHandler(self.mcp, self.allow_write)
         BootstrapHandler(self.mcp, self.allow_write)
         ValidationHandler(self.mcp, self.allow_write)
+        InitWorkflowHandler(self.mcp, self.allow_write)
     
     def _register_tools(self) -> None:
         """Register workflow tools with FastMCP"""
@@ -304,7 +306,7 @@ class WorkflowMCPServer:
     
     async def run_stdio(self) -> None:
         """Run MCP server with stdio transport"""
-        await self.mcp.run(transport="stdio")
+        await self.mcp.run_stdio_async()
     
     async def run_http(
         self, 

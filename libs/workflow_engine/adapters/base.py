@@ -376,6 +376,28 @@ class PlatformAdapter(ABC):
         """
         return None  # Default: no derivation
     
+    def get_input_context(self, field_name: str, current_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Provide additional context for input collection
+        
+        Called before prompting user. Returns dict of additional data to include
+        in the question (e.g., server_ips for nodes collection).
+        
+        Args:
+            field_name: Name of the field being collected
+            current_config: Current adapter's collected configuration
+            
+        Returns:
+            Dict of additional context, or None
+            
+        Example:
+            def get_input_context(self, field_name, current_config):
+                if field_name == "nodes":
+                    server_ips = self.get_cross_adapter_config("hetzner", "server_ips")
+                    return {"server_ips": server_ips}
+                return None
+        """
+        return None  # Default: no additional context
+    
     def get_field_suggestion(self, field_name: str) -> Optional[str]:
         """Generate a suggestion for a field based on platform metadata
         

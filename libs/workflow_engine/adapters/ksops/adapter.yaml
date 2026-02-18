@@ -3,6 +3,7 @@ display_name: KSOPS (SOPS + Age)
 version: 1.0.0
 phase: secrets
 selection_group: secrets_management
+group_order: 3
 is_default: true
 
 provides:

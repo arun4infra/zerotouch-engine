@@ -2,6 +2,7 @@ name: cilium
 version: 1.0.0
 phase: networking
 selection_group: network_tool
+group_order: 5
 is_default: true
 group_prompt: "Select network tool"
 group_help: "CNI plugin for Kubernetes networking"

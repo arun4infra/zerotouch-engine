@@ -1,7 +1,0 @@
-README.md
-pyproject.toml
-ztc_workflow_engine.egg-info/PKG-INFO
-ztc_workflow_engine.egg-info/SOURCES.txt
-ztc_workflow_engine.egg-info/dependency_links.txt
-ztc_workflow_engine.egg-info/requires.txt
-ztc_workflow_engine.egg-info/top_level.txt

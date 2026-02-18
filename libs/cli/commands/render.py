@@ -1,7 +1,6 @@
 """Render command - thin orchestrator"""
 
 import asyncio
-import json
 from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -9,10 +8,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from cli.mcp_client import WorkflowMCPClient
 
 
-async def render_command(platform_yaml_path: str = "platform.yaml", partial: list = None, debug: bool = False):
+async def render_command(platform_yaml_path: str = "platform/platform.yaml", partial: list = None, debug: bool = False):
     """Render platform adapters"""
     console = Console()
-    client = WorkflowMCPClient()
+    client = WorkflowMCPClient(
+        server_command="./scripts/start-mcp-server.sh",
+        server_args=["--allow-write"]
+    )
     
     try:
         async with client.connect() as session:
@@ -21,20 +23,20 @@ async def render_command(platform_yaml_path: str = "platform.yaml", partial: lis
             with Progress(SpinnerColumn(), TextColumn("[progress.description]"), console=console) as progress:
                 task = progress.add_task("Rendering adapters...", total=None)
                 
-                result = await client.call_tool(session, "render_adapters", {
+                render_result = await client.call_tool(session, "render_adapters", {
                     "platform_yaml_path": platform_yaml_path,
-                    "partial": partial,
+                    "partial": partial if partial else [],
                     "debug": debug
                 })
-                
-                render_result = json.loads(result.content[0].text)
             
             if render_result.get("success"):
                 console.print("[green]✓ Render completed successfully[/green]")
                 console.print(f"[dim]Artifacts: platform/generated/[/dim]")
                 console.print(f"[dim]Lock file: platform/lock.json[/dim]")
             else:
-                console.print(f"[red]✗ Render failed: {render_result.get('error')}[/red]")
+                error = render_result.get('error', 'Unknown error')
+                console.print(f"[red]✗ Render failed: {error}[/red]")
+                console.print(f"[dim]Full result: {render_result}[/dim]")
                 if debug:
                     console.print("[yellow]Debug mode: workspace preserved at .zerotouch-cache/workspace/[/yellow]")
             

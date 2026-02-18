@@ -1,6 +1,6 @@
 """Talos OS adapter implementation"""
 
-from typing import List, Dict, Any, Type, Literal
+from typing import List, Dict, Any, Type, Literal, Optional
 from pydantic import BaseModel, Field
 from pathlib import Path
 from enum import Enum
@@ -12,7 +12,7 @@ from workflow_engine.adapters.base import (
     ScriptReference,
     AdapterOutput,
 )
-from workflow_engine.adapters.capabilities import KubernetesAPICapability
+from workflow_engine.interfaces.capabilities import KubernetesAPICapability
 
 
 class NodeConfig(BaseModel):
@@ -86,20 +86,20 @@ class TalosAdapter(PlatformAdapter):
                 default="376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba",
                 help_text="Custom Talos image with embedded extensions"
             ),
-            InputPrompt(
-                name="cluster_name",
-                prompt="Cluster name (e.g., kube-prod)",
-                type="string",
-                validation=r"^[a-z0-9-]+$",
-                help_text="Alphanumeric + hyphens only"
-            ),
-            InputPrompt(
-                name="cluster_endpoint",
-                prompt="Cluster API endpoint",
-                type="string",
-                validation=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$",
-                help_text="Format: IP:PORT (e.g., 46.62.218.181:6443)"
-            ),
+            # InputPrompt(
+            #     name="cluster_name",
+            #     prompt="Cluster name (e.g., kube-prod)",
+            #     type="string",
+            #     validation=r"^[a-z0-9-]+$",
+            #     help_text="Alphanumeric + hyphens only"
+            # ),
+            # InputPrompt(
+            #     name="cluster_endpoint",
+            #     prompt="Cluster API endpoint",
+            #     type="string",
+            #     validation=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$",
+            #     help_text="Format: IP:PORT (e.g., 46.62.218.181:6443)"
+            # ),
             InputPrompt(
                 name="nodes",
                 prompt="Node definitions (JSON array)",
@@ -107,6 +107,22 @@ class TalosAdapter(PlatformAdapter):
                 help_text='[{"name": "cp01", "ip": "46.62.218.181", "role": "controlplane"}]'
             )
         ]
+    
+    def get_input_context(self, field_name: str, current_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Provide additional context for input collection"""
+        if field_name == "nodes":
+            # Get server IPs from Hetzner adapter
+            server_ips = self.get_cross_adapter_config("hetzner", "server_ips")
+            if server_ips:
+                # Handle both list and JSON string
+                if isinstance(server_ips, str):
+                    import json
+                    try:
+                        server_ips = json.loads(server_ips)
+                    except:
+                        server_ips = []
+                return {"server_ips": server_ips}
+        return None
     
     def collect_field_value(self, input_prompt: InputPrompt, current_config: Dict[str, Any]) -> Any:
         """Custom collection for Talos-specific fields"""
@@ -281,6 +297,7 @@ class TalosAdapter(PlatformAdapter):
                 "version": "1.0.0",
                 "phase": "foundation",
                 "selection_group": "os",
+                "group_order": 1,
                 "is_default": True,
                 "provides": [
                     {"capability": "kubernetes-api", "version": ">=1.28"}

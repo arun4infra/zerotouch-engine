@@ -2,6 +2,7 @@ name: talos
 version: 1.0.0
 phase: foundation
 selection_group: os
+group_order: 4
 is_default: true
 group_prompt: "Select operating system"
 group_help: "Base OS for Kubernetes nodes"

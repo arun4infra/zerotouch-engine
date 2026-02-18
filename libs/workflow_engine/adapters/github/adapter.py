@@ -54,7 +54,7 @@ class GithubAdapter(PlatformAdapter):
             InputPrompt(
                 name="github_app_private_key",
                 prompt="GitHub App Private Key",
-                type="password",
+                type="env_file",
                 validation=r"^-----BEGIN RSA PRIVATE KEY-----[\s\S]+-----END RSA PRIVATE KEY-----$",
                 help_text="Loaded from .env.global (GIT_APP_PRIVATE_KEY)"
             ),

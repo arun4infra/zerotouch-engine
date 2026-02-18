@@ -12,7 +12,7 @@ from workflow_engine.adapters.base import (
     ScriptReference,
     AdapterOutput,
 )
-from workflow_engine.adapters.capabilities import CloudInfrastructureCapability
+from workflow_engine.interfaces.capabilities import CloudInfrastructureCapability
 
 
 class HetznerConfig(BaseModel):
@@ -253,6 +253,7 @@ generators:
                 "version": "1.0.0",
                 "phase": "foundation",
                 "selection_group": "cloud_provider",
+                "group_order": 2,
                 "is_default": True,
                 "provides": [{"capability": "cloud-infrastructure", "version": "v1.0"}],
                 "requires": []

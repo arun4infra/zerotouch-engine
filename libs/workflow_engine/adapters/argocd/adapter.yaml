@@ -2,6 +2,7 @@ name: argocd
 version: 1.0.0
 phase: gitops
 selection_group: gitops_platform
+group_order: 6
 is_default: true
 group_prompt: "Select GitOps platform"
 group_help: "Declarative GitOps continuous delivery tool for Kubernetes"

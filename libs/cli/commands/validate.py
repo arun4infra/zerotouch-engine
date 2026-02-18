@@ -1,7 +1,6 @@
 """Validate command - thin orchestrator"""
 
 import asyncio
-import json
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
@@ -9,17 +8,19 @@ from rich.table import Table
 from cli.mcp_client import WorkflowMCPClient
 
 
-async def validate_command(platform_yaml_path: str = "platform.yaml"):
+async def validate_command(platform_yaml_path: str = "platform/platform.yaml"):
     """Validate generated artifacts"""
     console = Console()
-    client = WorkflowMCPClient()
+    client = WorkflowMCPClient(
+        server_command="./scripts/start-mcp-server.sh",
+        server_args=["--allow-write"]
+    )
     
     try:
         async with client.connect() as session:
             # Validate artifacts
             console.print("[cyan]Validating artifacts against lock file...[/cyan]")
-            result = await client.call_tool(session, "validate_artifacts", {"platform_yaml_path": platform_yaml_path})
-            artifacts_validation = json.loads(result.content[0].text)
+            artifacts_validation = await client.call_tool(session, "validate_artifacts", {"platform_yaml_path": platform_yaml_path})
             
             if artifacts_validation.get("valid"):
                 console.print("[green]✓ Artifacts match lock file[/green]")
@@ -28,8 +29,7 @@ async def validate_command(platform_yaml_path: str = "platform.yaml"):
             
             # Validate runtime dependencies
             console.print("\n[cyan]Checking runtime dependencies...[/cyan]")
-            result = await client.call_tool(session, "validate_runtime_dependencies", {})
-            deps_validation = json.loads(result.content[0].text)
+            deps_validation = await client.call_tool(session, "validate_runtime_dependencies", {})
             
             table = Table(title="Runtime Dependencies")
             table.add_column("Tool", style="cyan")
@@ -47,8 +47,7 @@ async def validate_command(platform_yaml_path: str = "platform.yaml"):
             
             # Validate cluster access
             console.print("\n[cyan]Checking cluster access...[/cyan]")
-            result = await client.call_tool(session, "validate_cluster_access", {})
-            cluster_validation = json.loads(result.content[0].text)
+            cluster_validation = await client.call_tool(session, "validate_cluster_access", {})
             
             if cluster_validation.get("accessible"):
                 console.print("[green]✓ Cluster is accessible[/green]")
