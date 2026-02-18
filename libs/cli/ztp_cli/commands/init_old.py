@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from rich.console import Console
 
-from cli.mcp_client import WorkflowMCPClient
-from cli.input_handlers import get_input
+from ztp_cli.mcp_client import WorkflowMCPClient
+from ztp_cli.input_handlers import get_input
 
 
 async def init_command():

@@ -5,7 +5,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from cli.mcp_client import WorkflowMCPClient
+from ztp_cli.mcp_client import WorkflowMCPClient
 
 
 async def bootstrap_command(pipeline_yaml_path: str = "platform/pipeline.yaml", skip_cache: bool = False):

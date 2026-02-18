@@ -5,7 +5,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from cli.mcp_client import WorkflowMCPClient
+from ztp_cli.mcp_client import WorkflowMCPClient
 
 
 async def render_command(platform_yaml_path: str = "platform/platform.yaml", partial: list = None, debug: bool = False):

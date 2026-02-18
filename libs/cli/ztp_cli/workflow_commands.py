@@ -6,9 +6,9 @@ from typing import Optional
 import asyncio
 import time
 
-from cli.mcp_client import get_default_client
-from cli.storage import FilesystemStore
-from cli.display import QuestionRenderer
+from ztp_cli.mcp_client import get_default_client
+from ztp_cli.storage import FilesystemStore
+from ztp_cli.display import QuestionRenderer
 
 app = typer.Typer(name="workflow", help="Workflow management commands")
 renderer = QuestionRenderer()

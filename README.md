@@ -14,6 +14,12 @@ ZTC is a CLI tool for bare-metal Kubernetes cluster bootstrapping with a multi-a
 
 ## Installation
 
+### From PyPI (Recommended)
+
+```bash
+pip install ztp-cli
+```
+
 ### From Source
 
 ```bash
@@ -21,22 +27,12 @@ ZTC is a CLI tool for bare-metal Kubernetes cluster bootstrapping with a multi-a
 git clone https://github.com/your-org/zerotouch-engine.git
 cd zerotouch-engine
 
-# Install with Poetry
+# Install CLI package
+cd libs/cli
 poetry install
 
 # Run CLI
-poetry run ztc --help
-```
-
-### Binary Distribution (Coming Soon)
-
-```bash
-# Download binary
-curl -L https://github.com/your-org/zerotouch-engine/releases/latest/download/ztc -o ztc
-chmod +x ztc
-
-# Run
-./ztc --help
+poetry run ztp --help
 ```
 
 ## Quick Start

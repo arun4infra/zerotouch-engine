@@ -3,7 +3,6 @@
 ## Prerequisites
 
 - Poetry installed
-- PyInstaller installed (`poetry add --group dev pyinstaller`)
 - Git repository with clean working tree
 
 ## Release Steps
@@ -11,7 +10,8 @@
 ### 1. Update Version
 
 ```bash
-# Update version in pyproject.toml
+# Update version in libs/cli/pyproject.toml
+cd libs/cli
 poetry version patch  # or minor, major
 ```
 
@@ -25,24 +25,17 @@ poetry build
 ls -lh dist/
 ```
 
-### 3. Build Standalone Binary
+### 3. Test Installation
 
 ```bash
-# Build binary with PyInstaller
-poetry run pyinstaller ztc.spec --clean
+# Test local installation
+pip install dist/ztc_cli-*.whl
 
-# Verify binary
-./dist/ztc version
+# Verify
+ztc-workflow --version
 ```
 
-### 4. Test Binary
-
-```bash
-# Run validation tests
-./tests/validate_binary_resources.sh
-```
-
-### 5. Create Git Tag
+### 4. Create Git Tag
 
 ```bash
 # Get version from pyproject.toml

@@ -6,14 +6,14 @@ from pathlib import Path
 from typing import Optional, List
 
 # Import command classes from local commands module
-from cli.commands.init import InitCommand
-from cli.commands.render import RenderCommand
-from cli.commands.validate import ValidateCommand
-from cli.commands.bootstrap import BootstrapCommand
-from cli.commands.eject import EjectCommand
+from ztp_cli.commands.init import InitCommand
+from ztp_cli.commands.render import RenderCommand
+from ztp_cli.commands.validate import ValidateCommand
+from ztp_cli.commands.bootstrap import BootstrapCommand
+from ztp_cli.commands.eject import EjectCommand
 
 # Import exceptions (need to copy these too)
-from cli.exceptions import ZTCError
+from ztp_cli.exceptions import ZTCError
 
 app = typer.Typer(
     name="core",

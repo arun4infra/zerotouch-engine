@@ -7,8 +7,8 @@ from rich.console import Console
 from rich.spinner import Spinner
 from rich.live import Live
 
-from cli.mcp_client import WorkflowMCPClient
-from cli.input_handlers import get_input
+from ztp_cli.mcp_client import WorkflowMCPClient
+from ztp_cli.input_handlers import get_input
 
 
 class InitOrchestrator:
