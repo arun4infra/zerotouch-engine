@@ -1,0 +1,23 @@
+name: cilium
+version: 1.0.0
+phase: networking
+selection_group: network_tool
+group_order: 5
+is_default: true
+group_prompt: "Select network tool"
+group_help: "CNI plugin for Kubernetes networking"
+provides:
+  - capability: cni
+    version: v1.0
+  - capability: gateway-api
+    version: v1.0
+  - capability: cni-artifacts
+    version: v1.0
+requires: []
+supported_versions:
+  - v1.16.x
+  - v1.17.x
+  - v1.18.5
+default_version: v1.18.5
+config_schema: schema.json
+output_schema: output-schema.json

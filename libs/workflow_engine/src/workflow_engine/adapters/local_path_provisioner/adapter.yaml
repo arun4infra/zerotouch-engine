@@ -1,0 +1,16 @@
+name: local_path_provisioner
+version: 1.0.0
+description: Local Path Provisioner for local storage
+phase: storage
+requires:
+  - capability: gitops-platform
+    version: v1.0
+  - capability: kubernetes-api
+    version: v1.0
+provides: []
+supported_versions:
+  - v0.0.28
+  - v0.0.27
+default_version: v0.0.28
+config_schema: schema.json
+output_schema: output-schema.json

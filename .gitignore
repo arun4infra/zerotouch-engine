@@ -9,3 +9,4 @@ platform/generated
 .env.dev
 .env.global
 .zerotouch-cache
+platform/secrets-bkp

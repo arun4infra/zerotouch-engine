@@ -42,25 +42,25 @@ async def _collect_nodes_from_ips(server_ips: list, console: Console) -> list:
     
     nodes = []
     
-    for idx, ip in enumerate(server_ips, 1):
-        console.print(f"\n[cyan]Server {idx} ({ip}):[/cyan]")
+    for ip in server_ips:
+        console.print(f"\n[cyan]Configure node for IP: {ip}[/cyan]")
         
         # Get node name
         while True:
             try:
-                name = Prompt.ask(f"  name")
+                name = Prompt.ask(f"  Node name")
             except (KeyboardInterrupt, EOFError):
                 raise KeyboardInterrupt("User cancelled input")
             
             if name and name.strip():
                 name = name.strip()
                 break
-            console.print("[red]  Server name is required[/red]")
+            console.print("[red]  Node name is required[/red]")
         
         # Get role with arrow key selection (async version)
         try:
             role = await questionary.select(
-                f"  role:",
+                f"  Node role:",
                 choices=["controlplane", "worker"]
             ).ask_async()
         except (KeyboardInterrupt, EOFError):

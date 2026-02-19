@@ -1,0 +1,22 @@
+name: cert_manager
+version: 1.0.0
+phase: runtime
+selection_group: runtime_foundations
+is_default: false
+group_prompt: "Select runtime foundations"
+group_help: "Certificate management with Gateway API support"
+provides:
+  - capability: certificate-management
+    version: v1.0
+requires:
+  - capability: gitops-platform
+    version: v1.0
+  - capability: kubernetes-api
+    version: v1.0
+supported_versions:
+  - v1.19.2
+  - v1.19.1
+  - v1.19.0
+default_version: v1.19.2
+config_schema: schema.json
+output_schema: output-schema.json

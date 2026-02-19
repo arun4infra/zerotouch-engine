@@ -7,7 +7,7 @@ import asyncio
 import time
 
 from ztp_cli.mcp_client import get_default_client
-from ztp_cli.storage import FilesystemStore
+from ztp_cli.engine_bridge import FilesystemStore
 from ztp_cli.display import QuestionRenderer
 
 app = typer.Typer(name="workflow", help="Workflow management commands")

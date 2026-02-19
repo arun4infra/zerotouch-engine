@@ -1,6 +1,6 @@
 {
-  "platform_hash": "b427bbecc299ee32f73b4a44bc9d5fe0e64d02f4f3809a60ec41f270252c43e0",
-  "artifacts_hash": "ef29ad116fdd02eff5ef4756441c76a658c433096f8a1921bd69495c178e86e2",
+  "platform_hash": "7cc09399ba2f4190b85afe941e894bc25ebfa0f4bd5f416e7724a9cbf27d3c7d",
+  "artifacts_hash": "177b9ee49c23ee8435750de6f52158297aa9e886c3cc46af6d8e3a3f22844cd2",
   "ztc_version": "1.0.0",
   "adapters": {
     "hetzner": {
@@ -30,6 +30,42 @@
     "crossplane": {
       "version": "1.0.0",
       "phase": "foundation"
+    },
+    "cert_manager": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "external_dns": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "agent_sandbox": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "keda": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "local_path_provisioner": {
+      "version": "1.0.0",
+      "phase": "storage"
+    },
+    "cnpg": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "nats": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "gateway_api": {
+      "version": "1.0.0",
+      "phase": "runtime"
+    },
+    "agent_gateway": {
+      "version": "1.0.0",
+      "phase": "runtime"
     }
   }
 }

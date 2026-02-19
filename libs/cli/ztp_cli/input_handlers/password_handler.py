@@ -6,10 +6,20 @@ from rich.prompt import Prompt
 
 
 async def handle_password_input(question: dict, console: Console) -> str:
-    """Handle password input with validation"""
+    """Handle password input with validation and non-interactive mode support"""
+    from ztp_cli.input_handlers.env_handler import get_env_value, is_non_interactive
+    
     prompt_text = question["prompt"]
     validation = question.get("validation")
     help_text = question.get("help_text")
+    field_name = question.get("name", "")
+    
+    # Check for non-interactive mode
+    if is_non_interactive():
+        value = get_env_value(field_name)
+        if value:
+            console.print(f"[dim]{prompt_text}: *** (from env)[/dim]")
+            return value.strip()
     
     while True:
         try:

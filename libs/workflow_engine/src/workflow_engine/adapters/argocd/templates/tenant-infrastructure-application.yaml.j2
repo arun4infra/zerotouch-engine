@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tenant-infrastructure
+  namespace: argocd
+  annotations:
+    # Wave 20 ensures repo credentials are ready (after ESO wave 0, registry secret wave 1)
+    # This runs BEFORE tenant apps (wave 100) to ensure namespaces are created first
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  project: default
+  source:
+    repoURL: {{ tenant_repo_url }}
+    targetRevision: main
+    path: tenants
+    directory:
+      recurse: true
+      # CRITICAL: Only sync infrastructure files. Ignore config.yaml.
+      include: '**/00-namespace.yaml' 
+      exclude: '{config.yaml,**/kustomization.yaml,**/deployment.yaml,**/service.yaml,**/values.yaml}'
+  destination:
+    server: https://kubernetes.default.svc
+    # Namespaces are cluster-scoped, so destination namespace acts as a placeholder
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

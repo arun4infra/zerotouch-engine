@@ -1,0 +1,67 @@
+# Workflow Engine Version Matrix - v1.0
+# Default versions and configurations for all adapters
+
+adapters:
+  cert_manager:
+    default_version: v1.19.2
+    default_namespace: cert-manager
+    default_enable_gateway_api: true
+  
+  cnpg:
+    default_version: 1.24.1
+    default_namespace: cnpg-system
+  
+  keda:
+    default_version: 2.16.0
+    default_namespace: keda
+  
+  nats:
+    default_version: 1.3.3
+    default_namespace: nats
+  
+  external_dns:
+    default_version: 1.15.0
+    default_namespace: external-dns
+    default_provider: hetzner  # Will be inferred from cloud provider
+  
+  gateway_api:
+    default_version: v1.2.1
+    default_namespace: gateway-system
+  
+  agent_gateway:
+    default_version: 1.0.0
+    default_namespace: default
+    default_replicas: 2
+  
+  agent_sandbox:
+    default_version: 1.0.0
+    default_namespace: agent-sandbox
+  
+  crossplane:
+    default_version: 1.16.0
+    default_namespace: crossplane-system
+    default_enable_composition_revisions: true
+  
+  argocd:
+    default_version: v3.2.0
+    default_namespace: argocd
+    default_mode: production
+  
+  cilium:
+    default_version: v1.18.5
+  
+  talos:
+    default_version: v1.11.5
+  
+  hetzner:
+    default_version: v1.0.0
+  
+  ksops:
+    default_s3_region: fsn1
+  
+  github:
+    default_version: v1.0.0
+  
+  local_path_provisioner:
+    default_version: v0.0.28
+    default_namespace: local-path-storage

@@ -1,0 +1,173 @@
+# Production Bootstrap Pipeline Template
+# Placeholders like {network_tool} are replaced with actual adapter names from platform.yaml
+
+mode: production
+total_steps: 18
+
+stages:
+  # Step 1: Rescue mode (pre-executed, marked complete in cache)
+  - name: rescue_mode
+    selection_group: cloud_provider
+    adapter: {cloud_provider}
+    description: Server booted into rescue mode (assumed pre-executed)
+    script: null
+    cache_key: rescue_mode
+    required: false
+
+  # Step 2: Network manifests (Talos embeds Cilium)
+  - name: network_manifests
+    selection_group: os
+    adapter: {os}
+    description: Embed Gateway API CRDs and Cilium CNI in Talos config
+    script: bootstrap/embed-network-manifests.sh
+    cache_key: network_manifests
+    required: true
+
+  # Step 3: Talos installation
+  - name: talos_install
+    selection_group: os
+    adapter: {os}
+    description: Install Talos OS on bare-metal server
+    script: bootstrap/02-install-talos.sh
+    cache_key: talos_install
+    required: true
+
+  # Step 4: Talos bootstrap
+  - name: talos_bootstrap
+    selection_group: os
+    adapter: {os}
+    description: Bootstrap Talos cluster and generate credentials
+    script: bootstrap/03-bootstrap-talos.sh
+    cache_key: talos_bootstrap
+    required: true
+
+  # Step 5: Worker nodes (optional)
+  - name: worker_nodes
+    selection_group: os
+    adapter: {os}
+    description: Add worker nodes to cluster
+    script: bootstrap/04-add-worker-nodes.sh
+    cache_key: worker_nodes
+    required: false
+    skip_if_empty: WORKER_NODES
+
+  # Step 6: Cilium readiness
+  - name: cilium_ready
+    selection_group: network_tool
+    adapter: {network_tool}
+    description: Wait for CNI to be ready
+    script: bootstrap/01-wait-cilium.sh
+    cache_key: cilium_ready
+    required: true
+
+  # Step 7: Gateway API readiness
+  - name: gateway_api_ready
+    selection_group: network_tool
+    adapter: {network_tool}
+    description: Validate Gateway API CRDs readiness
+    script: bootstrap/02-wait-gateway-api.sh
+    cache_key: gateway_api_ready
+    required: true
+
+  # Step 8: KSOPS setup
+  - name: ksops_setup
+    selection_group: secrets_management
+    adapter: {secrets_management}
+    description: Setup KSOPS (SOPS + Age + Key Generation)
+    script: bootstrap/08a-install-ksops.sh
+    cache_key: ksops_setup
+    required: true
+
+  # Step 9: Environment substitution
+  - name: env_substitution
+    selection_group: secrets_management
+    adapter: {secrets_management}
+    description: Apply environment variable substitution to manifests
+    script: bootstrap/apply-env-substitution.sh
+    cache_key: env_substitution
+    required: true
+
+  # Step 10: ArgoCD installation
+  - name: argocd_install
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Install ArgoCD (CLI, server, pods)
+    script: bootstrap/install-argocd.sh
+    cache_key: argocd_install
+    required: true
+    args: ["$MODE", "$ENV"]
+
+  # Step 11: KSOPS package deployment
+  - name: ksops_package
+    selection_group: secrets_management
+    adapter: {secrets_management}
+    description: Deploy KSOPS package to ArgoCD
+    script: bootstrap/08e-deploy-ksops-package.sh
+    cache_key: ksops_package
+    required: true
+
+  # Step 12: ArgoCD repo server readiness
+  - name: argocd_repo_ready
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Wait for ArgoCD repo-server with KSOPS plugin
+    script: bootstrap/03-wait-repo-server.sh
+    cache_key: argocd_repo_ready
+    required: true
+    args: ["--timeout", "120", "--namespace", "$ARGOCD_NAMESPACE"]
+
+  # Step 13: Root application deployment
+  - name: root_app_deploy
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Deploy ArgoCD root application
+    script: bootstrap/03-deploy-root-app.sh
+    cache_key: root_app_deploy
+    required: true
+    args: ["$MODE", "$ENV"]
+
+  # Step 14: Platform bootstrap sync
+  - name: platform_bootstrap
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Wait for platform-bootstrap application sync
+    script: bootstrap/04-wait-platform-bootstrap.sh
+    cache_key: platform_bootstrap
+    required: true
+
+  # Step 15: Verify KSOPS
+  - name: verify_ksops
+    selection_group: secrets_management
+    adapter: {secrets_management}
+    description: Verify KSOPS secret decryption
+    script: bootstrap/04-verify-ksops.sh
+    cache_key: null
+    required: true
+
+  # Step 16: Verify child apps
+  - name: verify_child_apps
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Verify ArgoCD child applications
+    script: bootstrap/05-verify-child-apps.sh
+    cache_key: null
+    required: true
+
+  # Step 17: Wait for apps healthy
+  - name: wait_apps_healthy
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Wait for all applications to be healthy
+    script: bootstrap/06-wait-apps-healthy.sh
+    cache_key: null
+    required: true
+    args: ["--timeout", "600"]
+
+  # Step 18: Final validation
+  - name: validate_cluster
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Final cluster validation
+    script: bootstrap/07-validate-cluster.sh
+    cache_key: null
+    required: true

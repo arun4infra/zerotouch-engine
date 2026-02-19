@@ -26,17 +26,18 @@ async def handle_choice_input(question: dict, console: Console) -> str:
             choice_label = choice
             choice_val = choice
         
-        questionary_choices.append(questionary.Choice(title=choice_label, value=choice_val))
+        q_choice = questionary.Choice(title=choice_label, value=choice_val)
+        questionary_choices.append(q_choice)
         
-        # Set default
+        # Set default - use the actual choice object from the list
         if default and choice_val == default:
-            default_choice = questionary.Choice(title=choice_label, value=choice_val)
+            default_choice = q_choice
     
-    answer = questionary.select(
+    answer = await questionary.select(
         prompt_text,
         choices=questionary_choices,
         default=default_choice
-    ).ask()
+    ).ask_async()
     
     if not answer:
         raise KeyboardInterrupt("Selection cancelled")

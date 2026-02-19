@@ -29,6 +29,7 @@ dependencies = [
     "rich>=13.0.0,<14.0.0",
     "questionary>=2.1.1,<3.0.0",
     "aiofiles>=24.0.0,<25.0.0",
+    "ztc-workflow-engine>=0.1.0,<0.2.0",
 ]
 
 [project.scripts]
@@ -50,7 +51,7 @@ test = [
 packages = ["ztp_cli"]
 
 [tool.uv.sources]
-# Removed ztc-workflow-engine - CLI now communicates via MCP only
+ztc-workflow-engine = { path = "../workflow_engine", editable = true }
 
 [tool.uv]
 package = true

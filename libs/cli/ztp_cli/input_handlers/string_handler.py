@@ -13,11 +13,27 @@ async def handle_string_input(question: dict, console: Console) -> Any:
     - Single values
     - Comma-separated lists (for plural field names ending with 's')
     - Regex validation
+    - Non-interactive mode via environment variables
     """
+    from ztp_cli.input_handlers.env_handler import get_env_value, is_non_interactive
+    
     prompt_text = question["prompt"]
     validation = question.get("validation")
     help_text = question.get("help_text")
-    field_name = question.get("name", "")
+    field_name = question.get("name", question.get("id", ""))
+    
+    # Check for non-interactive mode
+    if is_non_interactive():
+        value = get_env_value(field_name)
+        if value:
+            console.print(f"[dim]{prompt_text}: {value} (from env)[/dim]")
+            # Process value same as interactive
+            value = value.strip()
+            if field_name.endswith("s") and "," in value:
+                return [v.strip() for v in value.split(",")]
+            return value
+        else:
+            console.print(f"[yellow]Warning: No env value for {field_name}, falling back to interactive[/yellow]")
     
     while True:
         try:
