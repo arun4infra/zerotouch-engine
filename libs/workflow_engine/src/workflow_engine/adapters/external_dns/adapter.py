@@ -115,6 +115,13 @@ class ExternalDnsAdapter(PlatformAdapter):
         """Generate External-DNS ArgoCD Application manifest with dynamic provider selection"""
         config = ExternalDNSConfig(**self.config)
         
+        # Get webhook image and version from VersionProvider (no fallbacks)
+        webhook_image = self._get_version_config('external_dns', 'default_webhook_image')
+        webhook_version = self._get_version_config('external_dns', 'default_webhook_version')
+        
+        if not all([webhook_image, webhook_version]):
+            raise ValueError("Missing required External DNS webhook configuration in versions.yaml")
+        
         # Get provider from cloud-infrastructure capability if available
         provider = config.provider
         try:
@@ -132,7 +139,9 @@ class ExternalDnsAdapter(PlatformAdapter):
             "version": config.version,
             "namespace": config.namespace,
             "provider": provider,
-            "mode": config.mode
+            "mode": config.mode,
+            "webhook_image": webhook_image,
+            "webhook_version": webhook_version
         }
         
         # Render ArgoCD Application
@@ -149,3 +158,10 @@ class ExternalDnsAdapter(PlatformAdapter):
             capabilities=capability_data,
             data={"provider": provider}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for External DNS bootstrap stages"""
+        return {
+            'version': self.config['version'],
+            'provider': self.config['provider'],
+        }

@@ -45,10 +45,12 @@ if [[ -z "$TENANT_REPO_NAME" || "$TENANT_REPO_NAME" == "null" ]]; then
 fi
 
 # Build TENANTS_REPO_URL from components
-TENANTS_REPO_URL="https://github.com/${TENANT_ORG_NAME}/${TENANT_REPO_NAME}-tenants.git"
+# Remove any existing -tenants suffix before appending
+TENANT_REPO_BASE="${TENANT_REPO_NAME%-tenants}"
+TENANTS_REPO_URL="https://github.com/${TENANT_ORG_NAME}/${TENANT_REPO_BASE}.git"
 
 echo -e "${GREEN}✓ Organization: $TENANT_ORG_NAME${NC}"
-echo -e "${GREEN}✓ Repository: $TENANT_REPO_NAME-tenants${NC}"
+echo -e "${GREEN}✓ Repository: $TENANT_REPO_BASE${NC}"
 echo -e "${GREEN}✓ Tenant repo URL: $TENANTS_REPO_URL${NC}"
 echo ""
 
@@ -71,11 +73,11 @@ replace_tenant_url() {
 }
 
 # Process all files with tenant repo URLs
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/core/argocd-repo-configs.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/core/tenant-infrastructure.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/dev/99-tenants.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/staging/99-tenants.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/prod/99-tenants.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/core/argocd-repo-configs.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/core/tenant-infrastructure.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/overlays/dev/99-tenants.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/overlays/staging/99-tenants.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/overlays/prod/99-tenants.yaml"
 
 echo ""
 echo -e "${GREEN}✅ Environment substitution complete${NC}"

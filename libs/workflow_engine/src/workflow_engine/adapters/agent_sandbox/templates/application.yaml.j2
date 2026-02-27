@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: {{ platform_repo_url }}
     targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/argocd/base/agent-sandbox-wrapper
+    path: generated/argocd/base/agent-sandbox-wrapper
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ namespace }}

@@ -3,15 +3,15 @@ debug: false
 persist: true
 machine:
   type: controlplane
-  token: {{ cluster_name }}-token
+  token: {{ secrets.secrets.bootstraptoken }}
   ca:
-    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
-    key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+    crt: {{ secrets.certs.os.crt }}
+    key: {{ secrets.certs.os.key }}
   certSANs:
     - {{ node_ip }}
     - {{ cluster_endpoint.split(':')[0] }}
   kubelet:
-    image: ghcr.io/siderolabs/kubelet:v1.28.0
+    image: {{ kubelet_image }}
     extraArgs:
       rotate-server-certificates: "true"
   network:
@@ -21,7 +21,7 @@ machine:
         dhcp: true
   install:
     disk: {{ disk_device }}
-    image: ghcr.io/siderolabs/installer:v1.11.5
+    image: {{ installer_image }}
     wipe: false
   files: []
   env: {}
@@ -45,8 +45,8 @@ machine:
       enabled: true
       forwardKubeDNSToHost: true
 cluster:
-  id: {{ cluster_name }}-id
-  secret: {{ cluster_name }}-secret
+  id: {{ secrets.cluster.id }}
+  secret: {{ secrets.cluster.secret }}
   controlPlane:
     endpoint: https://{{ cluster_endpoint }}
   clusterName: {{ cluster_name }}
@@ -58,12 +58,18 @@ cluster:
       - 10.244.0.0/16
     serviceSubnets:
       - 10.96.0.0/12
-  token: {{ cluster_name }}-token
+  token: {{ secrets.secrets.bootstraptoken }}
+  secretboxEncryptionSecret: {{ secrets.secrets.secretboxencryptionsecret }}
   ca:
-    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
-    key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+    crt: {{ secrets.certs.k8s.crt }}
+    key: {{ secrets.certs.k8s.key }}
+  aggregatorCA:
+    crt: {{ secrets.certs.k8saggregator.crt }}
+    key: {{ secrets.certs.k8saggregator.key }}
+  serviceAccount:
+    key: {{ secrets.certs.k8sserviceaccount.key }}
   apiServer:
-    image: registry.k8s.io/kube-apiserver:v1.28.0
+    image: registry.k8s.io/kube-apiserver:{{ kubernetes_version }}
     certSANs:
       - {{ cluster_endpoint.split(':')[0] }}
     disablePodSecurityPolicy: true
@@ -74,12 +80,12 @@ cluster:
       rules:
         - level: Metadata
   controllerManager:
-    image: registry.k8s.io/kube-controller-manager:v1.28.0
+    image: registry.k8s.io/kube-controller-manager:{{ kubernetes_version }}
   proxy:
     disabled: false
-    image: registry.k8s.io/kube-proxy:v1.28.0
+    image: registry.k8s.io/kube-proxy:{{ kubernetes_version }}
   scheduler:
-    image: registry.k8s.io/kube-scheduler:v1.28.0
+    image: registry.k8s.io/kube-scheduler:{{ kubernetes_version }}
   discovery:
     enabled: true
     registries:
@@ -89,14 +95,19 @@ cluster:
         disabled: false
   etcd:
     ca:
-      crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
-      key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+      crt: {{ secrets.certs.etcd.crt }}
+      key: {{ secrets.certs.etcd.key }}
   coreDNS:
     disabled: false
-    image: registry.k8s.io/coredns/coredns:v1.11.1
+    image: {{ coredns_image }}
   allowSchedulingOnControlPlanes: true
 {% if cni_manifests %}
   inlineManifests:
+    # Gateway API CRDs MUST load before Cilium for Gateway API support
+    - name: gateway-api-crds
+      contents: |
+{{ gateway_api_crds | indent(8, first=True) }}
+    # Cilium CNI with Gateway API support
     - name: cilium-cni
       contents: |
 {{ cni_manifests | indent(8, first=True) }}

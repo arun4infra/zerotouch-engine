@@ -136,6 +136,12 @@ class GatewayApiAdapter(PlatformAdapter):
         
         manifests = {}
         
+        # Get bundle version from VersionProvider (no fallback)
+        bundle_version = self._get_version_config('gateway_api', 'default_bundle_version')
+        
+        if not bundle_version:
+            raise ValueError("Missing required Gateway API bundle version configuration in versions.yaml")
+        
         # Template context - use hardcoded paths since manifests are generated locally
         template_ctx = {
             "gateway_api_version": config.gateway_api_version,
@@ -143,8 +149,9 @@ class GatewayApiAdapter(PlatformAdapter):
             "email": config.email,
             "hetzner_location": config.hetzner_location,
             "mode": config.mode,
-            "platform_repo_url": "https://github.com/arun4infra/zerotouch-platform.git",
-            "platform_repo_branch": "main"
+            "platform_repo_url": self.get_cross_adapter_config('argocd', 'control_plane_repo_url'),
+            "platform_repo_branch": "main",
+            "bundle_version": bundle_version
         }
         
         # Preview mode: minimal Gateway API CRDs only (for WebService compatibility)
@@ -164,42 +171,48 @@ class GatewayApiAdapter(PlatformAdapter):
             )
         
         # Production mode: full Gateway API infrastructure
+        # Define base paths
+        gateway_base_path = "argocd/k8/core/gateway"
+        
         # Render CRD application
         crds_template = self.jinja_env.get_template("gateway_api/crds/application.yaml.j2")
         manifests["argocd/k8/core/00-gateway-api-crds.yaml"] = await crds_template.render_async(**template_ctx)
         
         # Render foundation manifests
+        foundation_path = f"{gateway_base_path}/gateway-foundation"
         foundation_config_template = self.jinja_env.get_template("gateway_api/foundation/cilium-gateway-config.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-foundation/cilium-gateway-config.yaml"] = await foundation_config_template.render_async(**template_ctx)
+        manifests[f"{foundation_path}/cilium-gateway-config.yaml"] = await foundation_config_template.render_async(**template_ctx)
         
         foundation_rbac_template = self.jinja_env.get_template("gateway_api/foundation/cilium-gateway-rbac.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-foundation/cilium-gateway-rbac.yaml"] = await foundation_rbac_template.render_async(**template_ctx)
+        manifests[f"{foundation_path}/cilium-gateway-rbac.yaml"] = await foundation_rbac_template.render_async(**template_ctx)
         
         foundation_kustomization_template = self.jinja_env.get_template("gateway_api/foundation/kustomization.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-foundation/kustomization.yaml"] = await foundation_kustomization_template.render_async(**template_ctx)
+        manifests[f"{foundation_path}/kustomization.yaml"] = await foundation_kustomization_template.render_async(**template_ctx)
         
         # Render class manifests
+        class_path = f"{gateway_base_path}/gateway-class"
         class_gatewayclass_template = self.jinja_env.get_template("gateway_api/class/cilium-gatewayclass.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-class/cilium-gatewayclass.yaml"] = await class_gatewayclass_template.render_async(**template_ctx)
+        manifests[f"{class_path}/cilium-gatewayclass.yaml"] = await class_gatewayclass_template.render_async(**template_ctx)
         
         class_kustomization_template = self.jinja_env.get_template("gateway_api/class/kustomization.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-class/kustomization.yaml"] = await class_kustomization_template.render_async(**template_ctx)
+        manifests[f"{class_path}/kustomization.yaml"] = await class_kustomization_template.render_async(**template_ctx)
         
         # Render config manifests
+        config_path = f"{gateway_base_path}/gateway-config"
         config_bootstrap_issuer_template = self.jinja_env.get_template("gateway_api/config/bootstrap-issuer.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-config/bootstrap-issuer.yaml"] = await config_bootstrap_issuer_template.render_async(**template_ctx)
+        manifests[f"{config_path}/bootstrap-issuer.yaml"] = await config_bootstrap_issuer_template.render_async(**template_ctx)
         
         config_letsencrypt_issuer_template = self.jinja_env.get_template("gateway_api/config/letsencrypt-issuer.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-config/letsencrypt-issuer.yaml"] = await config_letsencrypt_issuer_template.render_async(**template_ctx)
+        manifests[f"{config_path}/letsencrypt-issuer.yaml"] = await config_letsencrypt_issuer_template.render_async(**template_ctx)
         
         config_certificate_template = self.jinja_env.get_template("gateway_api/config/gateway-certificate.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-config/gateway-certificate.yaml"] = await config_certificate_template.render_async(**template_ctx)
+        manifests[f"{config_path}/gateway-certificate.yaml"] = await config_certificate_template.render_async(**template_ctx)
         
         config_gateway_template = self.jinja_env.get_template("gateway_api/config/public-gateway.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-config/public-gateway.yaml"] = await config_gateway_template.render_async(**template_ctx)
+        manifests[f"{config_path}/public-gateway.yaml"] = await config_gateway_template.render_async(**template_ctx)
         
         config_kustomization_template = self.jinja_env.get_template("gateway_api/config/kustomization.yaml.j2")
-        manifests["argocd/k8/core/gateway/gateway-config/kustomization.yaml"] = await config_kustomization_template.render_async(**template_ctx)
+        manifests[f"{config_path}/kustomization.yaml"] = await config_kustomization_template.render_async(**template_ctx)
         
         # Render parent application
         parent_app_template = self.jinja_env.get_template("gateway_api/parent-app.yaml.j2")
@@ -227,3 +240,9 @@ class GatewayApiAdapter(PlatformAdapter):
             capabilities=capability_data,
             data={}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Gateway API bootstrap stages"""
+        return {
+            'version': self.config['version'],
+        }

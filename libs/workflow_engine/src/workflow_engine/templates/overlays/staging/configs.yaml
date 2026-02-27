@@ -1,0 +1,6 @@
+# Staging environment configuration
+cilium:
+  operator_replicas: 1
+  
+talos:
+  allow_scheduling_on_control_planes: false

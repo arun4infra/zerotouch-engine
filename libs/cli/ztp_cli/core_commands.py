@@ -3,6 +3,7 @@
 import typer
 from ztp_cli.commands.init import init
 from ztp_cli.commands.render import render
+from ztp_cli.commands.sync import sync
 from ztp_cli.commands.bootstrap import bootstrap
 
 app = typer.Typer(help="ZeroTouch Platform CLI")
@@ -21,6 +22,12 @@ def render_cmd(
 ):
     """Generate platform artifacts"""
     render(debug=debug, partial=partial)
+
+
+@app.command(name="sync")
+def sync_cmd():
+    """Sync platform manifests to control plane repository"""
+    sync()
 
 
 @app.command(name="bootstrap")

@@ -13,7 +13,7 @@ kind: CustomResourceDefinition
 metadata:
   name: httproutes.gateway.networking.k8s.io
   labels:
-    gateway.networking.k8s.io/bundle-version: v1.0.0
+    gateway.networking.k8s.io/bundle-version: {{ bundle_version }}
   annotations:
     api-approved.kubernetes.io: "https://github.com/kubernetes-sigs/gateway-api"
 spec:

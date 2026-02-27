@@ -14,7 +14,7 @@
   path: /spec/template/spec/initContainers/-
   value:
     name: install-ksops
-    image: viaductoss/ksops:v4.3.2
+    image: {{ ksops_image }}
     command: ["/bin/sh", "-c"]
     args:
       - echo "Installing KSOPS...";

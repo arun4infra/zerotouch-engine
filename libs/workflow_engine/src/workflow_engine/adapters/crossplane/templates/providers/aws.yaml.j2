@@ -9,7 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  package: xpkg.upbound.io/upbound/provider-aws:v1.1.0
+  package: xpkg.upbound.io/upbound/provider-aws:{{ provider_version }}
 ---
 apiVersion: aws.upbound.io/v1beta1
 kind: ProviderConfig

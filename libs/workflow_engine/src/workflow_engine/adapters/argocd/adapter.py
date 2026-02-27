@@ -14,9 +14,10 @@ class ArgoCDScripts(str, Enum):
     # Pre-work (1 script)
     INSTALL_CLI = "pre_work/install-argocd-cli.sh"
     
-    # Bootstrap (2 scripts)
+    # Bootstrap (3 scripts)
     INSTALL_ARGOCD = "bootstrap/install-argocd.sh"
     PATCH_ADMIN_PASSWORD = "bootstrap/patch-admin-password.sh"
+    DEPLOY_ROOT_APP = "bootstrap/03-deploy-root-app.sh"
     
     # Post-work (2 scripts)
     WAIT_PODS = "post_work/wait-argocd-pods.sh"
@@ -34,6 +35,13 @@ class ArgocdAdapter(PlatformAdapter):
         """Load adapter.yaml metadata from ArgoCD adapter directory"""
         metadata_path = Path(__file__).parent / "adapter.yaml"
         return yaml.safe_load(metadata_path.read_text())
+    
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for ArgoCD bootstrap stages"""
+        return {
+            'argocd_version': self.config.get('version', ''),
+            'namespace': self.config.get('namespace', 'argocd'),
+        }
     
     @property
     def config_model(self) -> Type[BaseModel]:
@@ -61,15 +69,15 @@ class ArgocdAdapter(PlatformAdapter):
                 help_text="Kubernetes namespace for ArgoCD"
             ),
             InputPrompt(
-                name="platform_repo_url",
-                prompt="Platform Repository URL (with .git suffix)",
+                name="control_plane_repo_url",
+                prompt="Control Plane Repository URL (with .git suffix)",
                 type="string",
                 validation=r"^https://github\.com/.+\.git$",
-                help_text="Git repository URL for platform manifests"
+                help_text="Git repository URL for control plane manifests"
             ),
             InputPrompt(
-                name="platform_repo_branch",
-                prompt="Platform Repository Branch",
+                name="control_plane_repo_branch",
+                prompt="Control Plane Repository Branch",
                 type="string",
                 default="main",
                 help_text="Git branch to track"
@@ -145,6 +153,12 @@ class ArgocdAdapter(PlatformAdapter):
         if config.mode == "preview":
             manifests_path = f"{manifests_path}/preview"
         
+        # Determine root app overlay path based on environment
+        if config.mode == "preview":
+            root_app_overlay = "platform/generated/argocd/kind"
+        else:
+            root_app_overlay = "platform/generated/argocd/k8"
+        
         return [
             ScriptReference(
                 package="workflow_engine.adapters.argocd.scripts",
@@ -167,6 +181,17 @@ class ArgocdAdapter(PlatformAdapter):
                 },
                 secret_env_vars={
                     "ADMIN_PASSWORD": config.admin_password.get_secret_value()
+                }
+            ),
+            ScriptReference(
+                package="workflow_engine.adapters.argocd.scripts",
+                resource=ArgoCDScripts.DEPLOY_ROOT_APP,
+                description="Deploy ArgoCD root application",
+                timeout=120,
+                context_data={
+                    "namespace": config.namespace,
+                    "mode": config.mode,
+                    "root_app_overlay": root_app_overlay
                 }
             )
         ]
@@ -231,14 +256,21 @@ class ArgocdAdapter(PlatformAdapter):
         
         manifests = {}
         
+        # Get KSOPS image from VersionProvider (no fallback)
+        ksops_image = self._get_version_config('argocd', 'default_ksops_image')
+        
+        if not ksops_image:
+            raise ValueError("Missing required ArgoCD KSOPS image configuration in versions.yaml")
+        
         # Template context
         template_ctx = {
             "version": config.version,
             "namespace": config.namespace,
-            "repo_url": config.platform_repo_url,
-            "target_revision": config.platform_repo_branch,
+            "repo_url": config.control_plane_repo_url,
+            "target_revision": config.control_plane_repo_branch,
             "overlay_environment": config.overlay_environment,
-            "mode": config.mode
+            "mode": config.mode,
+            "ksops_image": ksops_image
         }
         
         # Render production or preview kustomization
@@ -289,17 +321,11 @@ class ArgocdAdapter(PlatformAdapter):
         admin_patch_template = self.jinja_env.get_template("argocd/argocd-admin-patch.yaml.j2")
         manifests["argocd/bootstrap-files/argocd-admin-patch.yaml"] = await admin_patch_template.render_async(**template_ctx)
         
-        # Render overlay kustomizations (shared)
-        overlay_main_template = self.jinja_env.get_template("argocd/overlay-main-kustomization.yaml.j2")
-        manifests["argocd/k8/kustomization.yaml"] = await overlay_main_template.render_async(**template_ctx)
-        
+        # Render overlay kustomizations for preview mode only
         overlay_preview_template = self.jinja_env.get_template("argocd/overlay-preview-kustomization.yaml.j2")
         manifests["argocd/kind/kustomization.yaml"] = await overlay_preview_template.render_async(**template_ctx)
         
-        # Render root Application manifests (shared)
-        overlay_main_root_template = self.jinja_env.get_template("argocd/overlay-main-root.yaml.j2")
-        manifests["argocd/k8/root.yaml"] = await overlay_main_root_template.render_async(**template_ctx)
-        
+        # Render root Application for preview mode only
         overlay_preview_root_template = self.jinja_env.get_template("argocd/overlay-preview-root.yaml.j2")
         manifests["argocd/kind/root.yaml"] = await overlay_preview_root_template.render_async(**template_ctx)
         
@@ -315,6 +341,31 @@ class ArgocdAdapter(PlatformAdapter):
         manifests["argocd/k8/core/tenant-infrastructure.yaml"] = await tenant_infra_template.render_async(
             tenant_repo_url=tenant_repo_url
         )
+        
+        # Generate tenant ApplicationSets for each environment overlay
+        tenant_app_template = self.jinja_env.get_template("argocd/tenant-applications.yaml.j2")
+        env_root_template = self.jinja_env.get_template("argocd/env-root.yaml.j2")
+        env_kustomization_template = self.jinja_env.get_template("argocd/env-kustomization.yaml.j2")
+        env_mapping = {"dev": "dev", "staging": "staging", "prod": "production"}
+        
+        for env, tenant_path_env in env_mapping.items():
+            # Environment-specific root.yaml
+            manifests[f"argocd/k8/overlays/{env}/root.yaml"] = await env_root_template.render_async(
+                repo_url=config.control_plane_repo_url,
+                target_revision=config.control_plane_repo_branch,
+                environment=env
+            )
+            
+            # Environment-specific tenant ApplicationSet
+            manifests[f"argocd/k8/overlays/{env}/99-tenants.yaml"] = await tenant_app_template.render_async(
+                tenant_repo_url=tenant_repo_url,
+                tenant_path_env=tenant_path_env
+            )
+            
+            # Environment-specific kustomization.yaml
+            manifests[f"argocd/k8/overlays/{env}/kustomization.yaml"] = await env_kustomization_template.render_async(
+                has_patches=True
+            )
         
         # Create empty core/ directories (placeholders for other adapters)
         manifests["argocd/k8/core/.gitkeep"] = ""
@@ -334,7 +385,7 @@ class ArgocdAdapter(PlatformAdapter):
             env_vars={},
             capabilities=capability_data,
             data={
-                "repo_url": config.platform_repo_url,
-                "target_revision": config.platform_repo_branch
+                "repo_url": config.control_plane_repo_url,
+                "target_revision": config.control_plane_repo_branch
             }
         )

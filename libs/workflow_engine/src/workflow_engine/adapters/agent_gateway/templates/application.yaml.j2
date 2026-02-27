@@ -7,13 +7,10 @@ metadata:
     argocd.argoproj.io/sync-wave: "6"
 spec:
   project: default
-  sources:
-  - repoURL: {{ platform_repo_url }}
+  source:
+    repoURL: {{ platform_repo_url }}
     targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/argocd/k8/core/agentgateway
-  - repoURL: {{ platform_repo_url }}
-    targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/argocd/k8/core/agentgateway-httproute
+    path: generated/argocd/k8/core/agentgateway
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ namespace }}

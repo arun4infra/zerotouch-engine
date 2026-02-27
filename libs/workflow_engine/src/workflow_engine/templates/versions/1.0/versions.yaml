@@ -1,0 +1,108 @@
+# Workflow Engine Version Matrix
+# This file defines the default versions for all platform components
+# 
+# Version: 1.0.0
+# Last Updated: 2026-02-27
+# Compatibility: Kubernetes 1.34.x, Talos 1.11.x
+#
+# Maintenance Guidelines:
+# - Test all version changes in a staging environment before updating
+# - Update SHA256 hashes when changing image versions
+# - Document breaking changes in CHANGELOG.md
+# - Keep image versions aligned with tested compatibility matrix
+# - Review quarterly for security updates and new releases
+#
+# Version Update Process:
+# 1. Check upstream release notes for breaking changes
+# 2. Update version number and image SHA256 hash
+# 3. Test in dev/staging environment
+# 4. Update this file's Last Updated date
+# 5. Document changes in platform changelog
+
+metadata:
+  version: "1.0"
+  last_updated: "2026-02-27"
+  kubernetes_compatibility: "1.34.x"
+  talos_compatibility: "1.11.x"
+  description: "Default component versions for ZeroTouch Platform v1.0"
+
+adapters:
+  cert_manager:
+    default_version: v1.19.2
+    default_namespace: cert-manager
+    default_enable_gateway_api: true
+  
+  cnpg:
+    default_version: 0.27.0
+    default_namespace: cnpg-system
+  
+  keda:
+    default_version: 2.16.0
+    default_namespace: keda
+  
+  nats:
+    default_version: 1.3.3
+    default_namespace: nats
+  
+  external_dns:
+    default_version: 1.15.0
+    default_namespace: external-dns
+    default_provider: hetzner
+    default_webhook_image: "docker.io/hetzner/external-dns-hetzner-webhook"
+    default_webhook_version: "v0.3.2"
+  
+  gateway_api:
+    default_version: v1.2.1
+    default_namespace: gateway-system
+    default_bundle_version: "v1.0.0"
+    default_crds_version: "v1.4.1"
+  
+  agent_gateway:
+    default_version: 1.0.0
+    default_namespace: default
+    default_replicas: 2
+  
+  agent_sandbox:
+    default_version: 1.0.0
+    default_namespace: agent-sandbox
+  
+  crossplane:
+    default_version: 1.16.0
+    default_namespace: crossplane-system
+    default_enable_composition_revisions: true
+    default_provider_aws_version: "v1.1.0"
+    default_provider_hetzner_version: "v0.1.0"
+    default_provider_kubernetes_version: "v0.12.1"
+    default_provider_kubernetes_sa_hash: "6ef2ebb6f1db"
+  
+  argocd:
+    default_version: v3.2.0
+    default_namespace: argocd
+    default_mode: production
+    default_ksops_image: "viaductoss/ksops:v4.3.2"
+  
+  cilium:
+    default_version: v1.18.5
+    default_envoy_image: "quay.io/cilium/cilium-envoy:v1.34.12-1765374555-6a93b0bbba8d6dc75b651cbafeedb062b2997716@sha256:3108521821c6922695ff1f6ef24b09026c94b195283f8bfbfc0fa49356a156e1"
+    default_cilium_image: "quay.io/cilium/cilium:v1.18.5@sha256:2c92fb05962a346eaf0ce11b912ba434dc10bd54b9989e970416681f4a069628"
+    default_operator_image: "quay.io/cilium/operator-generic:v1.18.5@sha256:36c3f6f14c8ced7f45b40b0a927639894b44269dd653f9528e7a0dc363a4eb99"
+  
+  talos:
+    default_version: v1.11.5
+    default_kubernetes_version: v1.34.2
+    default_installer_image: "ghcr.io/siderolabs/installer:v1.11.5"
+    default_kubelet_image: "ghcr.io/siderolabs/kubelet:v1.34.2"
+    default_coredns_image: "registry.k8s.io/coredns/coredns:v1.11.1"
+  
+  hetzner:
+    default_version: v1.0.0
+  
+  ksops:
+    default_s3_region: fsn1
+  
+  github:
+    default_version: v1.0.0
+  
+  local_path_provisioner:
+    default_version: v0.0.28
+    default_namespace: local-path-storage

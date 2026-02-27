@@ -71,10 +71,11 @@ echo "Creating sops-age secret..."
 # Delete existing secret if it exists to ensure clean replacement
 kubectl delete secret sops-age -n argocd --ignore-not-found=true > /dev/null 2>&1
 
-# Create new secret
+# Create new secret (Age key must end with newline for SOPS)
 kubectl create secret generic sops-age \
     --namespace=argocd \
-    --from-literal=keys.txt="$AGE_PRIVATE_KEY" > /dev/null 2>&1
+    --from-literal=keys.txt="${AGE_PRIVATE_KEY}
+" > /dev/null 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Secret sops-age created/updated successfully"

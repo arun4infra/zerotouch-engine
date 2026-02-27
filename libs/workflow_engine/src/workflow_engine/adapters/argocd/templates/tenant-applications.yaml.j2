@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tenant-applications
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "100"
+spec:
+  generators:
+    - git:
+        repoURL: {{ tenant_repo_url }}
+        revision: main
+        files:
+          - path: tenants/*/overlays/{{ tenant_path_env }}/config.yaml
+  template:
+    metadata:
+      name: '{% raw %}{{tenant}}{% endraw %}'
+      namespace: argocd
+      labels:
+        tenant: '{% raw %}{{tenant}}{% endraw %}'
+        managed-by: applicationset
+      annotations:
+        argocd.argoproj.io/compare-options: IgnoreExtraneous
+    spec:
+      project: default
+      source:
+        repoURL: '{% raw %}{{repoURL}}{% endraw %}'
+        targetRevision: '{% raw %}{{targetRevision}}{% endraw %}'
+        path: '{% raw %}{{appPath}}{% endraw %}/{% raw %}{{environment}}{% endraw %}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{% raw %}{{namespace}}{% endraw %}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

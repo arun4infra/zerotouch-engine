@@ -80,4 +80,4 @@ class TestCiliumAdapterRender:
         gateway_app = Path("platform/generated/argocd/overlays/main/core/04-gateway-config.yaml")
         content = gateway_app.read_text()
         
-        assert "bootstrap/argocd/overlays/main/core/gateway" in content or "gateway-foundation" in content
+        assert "platform/generated/argocd/k8/core/gateway" in content or "gateway-foundation" in content

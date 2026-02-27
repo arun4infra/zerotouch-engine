@@ -86,7 +86,7 @@ class AgentSandboxAdapter(PlatformAdapter):
             "image_tag": config.image_tag,
             "namespace": config.namespace,
             "mode": config.mode,
-            "platform_repo_url": "https://github.com/arun4infra/zerotouch-platform.git",
+            "platform_repo_url": self.get_cross_adapter_config('argocd', 'control_plane_repo_url'),
             "platform_repo_branch": "main"
         }
         
@@ -108,3 +108,7 @@ class AgentSandboxAdapter(PlatformAdapter):
             capabilities=capability_data,
             data={}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Agent Sandbox bootstrap stages"""
+        return {'version': self.config['version']}

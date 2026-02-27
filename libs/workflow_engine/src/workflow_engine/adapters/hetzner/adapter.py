@@ -269,3 +269,17 @@ class HetznerAdapter(PlatformAdapter):
                 "requires": []
             }
         return yaml.safe_load(metadata_path.read_text())
+    
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Hetzner bootstrap stages"""
+        context = {
+            'server_ips': self.config.get('server_ips', []),
+            'datacenter': self.config.get('datacenter', ''),
+        }
+        
+        # Add server_ip if available
+        server_ips = self.config.get('server_ips', [])
+        if server_ips:
+            context['server_ip'] = server_ips[0]
+        
+        return context

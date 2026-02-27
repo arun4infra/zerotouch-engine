@@ -182,30 +182,51 @@ class CrossplaneAdapter(PlatformAdapter):
         
         manifests = {}
         
+        # Get provider versions from VersionProvider (no fallbacks)
+        provider_aws_version = self._get_version_config('crossplane', 'default_provider_aws_version')
+        provider_hetzner_version = self._get_version_config('crossplane', 'default_provider_hetzner_version')
+        provider_kubernetes_version = self._get_version_config('crossplane', 'default_provider_kubernetes_version')
+        provider_kubernetes_sa_hash = self._get_version_config('crossplane', 'default_provider_kubernetes_sa_hash')
+        
+        if not all([provider_aws_version, provider_hetzner_version, provider_kubernetes_version, provider_kubernetes_sa_hash]):
+            raise ValueError("Missing required Crossplane provider version configuration in versions.yaml")
+        
         # Template context
         template_ctx = {
             "version": config.version,
             "namespace": config.namespace,
             "enable_composition_revisions": config.enable_composition_revisions,
             "mode": config.mode,
-            "providers": config.providers
+            "providers": config.providers,
+            "provider_version": None,  # Set per provider below
+            "sa_hash": provider_kubernetes_sa_hash
         }
         
         # Render core operator Application to ArgoCD base
         core_template = self.jinja_env.get_template("crossplane/core/application.yaml.j2")
         manifests["argocd/base/01-crossplane.yaml"] = await core_template.render_async(**template_ctx)
         
-        # Render provider manifests to foundation directory
+        # Render provider manifests to foundation directory (3 files per provider)
         for provider in config.providers:
+            # Set provider-specific version
+            if provider == 'aws':
+                template_ctx['provider_version'] = provider_aws_version
+            elif provider == 'hetzner':
+                template_ctx['provider_version'] = provider_hetzner_version
+            elif provider == 'kubernetes':
+                template_ctx['provider_version'] = provider_kubernetes_version
+            
+            # 1. Provider resource
             provider_template = self.jinja_env.get_template(f"crossplane/providers/{provider}.yaml.j2")
             manifests[f"argocd/k8/foundation/provider-{provider}.yaml"] = await provider_template.render_async(**template_ctx)
             
-            # Render provider config and RBAC
-            provider_config_template = self.jinja_env.get_template(f"crossplane/foundation/provider-{provider}-config.yaml.j2")
-            manifests[f"argocd/k8/foundation/provider-{provider}-config.yaml"] = await provider_config_template.render_async(**template_ctx)
+            # 2. ProviderConfig
+            config_template = self.jinja_env.get_template(f"crossplane/foundation/provider-{provider}-config.yaml.j2")
+            manifests[f"argocd/k8/foundation/provider-{provider}-config.yaml"] = await config_template.render_async(**template_ctx)
             
-            provider_rbac_template = self.jinja_env.get_template(f"crossplane/foundation/provider-{provider}-rbac.yaml.j2")
-            manifests[f"argocd/k8/foundation/provider-{provider}-rbac.yaml"] = await provider_rbac_template.render_async(**template_ctx)
+            # 3. RBAC (ClusterRole + ClusterRoleBinding)
+            rbac_template = self.jinja_env.get_template(f"crossplane/foundation/provider-{provider}-rbac.yaml.j2")
+            manifests[f"argocd/k8/foundation/provider-{provider}-rbac.yaml"] = await rbac_template.render_async(**template_ctx)
         
         # Import capability model
         from workflow_engine.interfaces.capabilities import InfrastructureProvisioningCapability
@@ -227,3 +248,10 @@ class CrossplaneAdapter(PlatformAdapter):
             capabilities=capability_data,
             data={}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Crossplane bootstrap stages"""
+        return {
+            'version': self.config['version'],
+            'providers': self.config['providers'],
+        }

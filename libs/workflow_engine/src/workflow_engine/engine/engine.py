@@ -62,10 +62,10 @@ class PlatformEngine:
         # Normalize version: '1.0' -> '1.0', '1.0.0' -> '1.0'
         version_dir = platform_version.rsplit('.', 1)[0] if platform_version.count('.') > 1 else platform_version
         
-        versions_path = Path(__file__).parent.parent / "versions" / version_dir / "versions.yaml"
+        versions_path = Path(__file__).parent.parent / "templates" / "versions" / version_dir / "versions.yaml"
         if not versions_path.exists():
             # Fallback to 1.0 if version not found
-            versions_path = Path(__file__).parent.parent / "versions" / "1.0" / "versions.yaml"
+            versions_path = Path(__file__).parent.parent / "templates" / "versions" / "1.0" / "versions.yaml"
         
         if versions_path.exists():
             with open(versions_path, 'r') as f:
@@ -198,14 +198,14 @@ class PlatformEngine:
             for i, adapter in enumerate(adapters, 1):
                 if progress_callback:
                     progress_callback(f"Rendering {adapter.name} ({i}/{len(adapters)})...")
+                
+                # Inject all adapter configs for cross-adapter access
+                adapter.set_all_adapters_config(self.platform.get('adapters', {}))
+                
                 snapshot = self.context.snapshot()
                 output = await adapter.render(snapshot)
                 self.write_adapter_output(generated_dir, adapter.name, output)
                 self.context.register_output(adapter.name, output)
-            
-            if progress_callback:
-                progress_callback("Generating pipeline YAML...")
-            self.generate_pipeline_yaml(adapters, workspace)
             
             if progress_callback:
                 progress_callback("Validating artifacts...")
@@ -239,25 +239,6 @@ class PlatformEngine:
             manifest_path.parent.mkdir(parents=True, exist_ok=True)
             manifest_path.write_text(content)
     
-    def generate_pipeline_yaml(self, adapters: List[PlatformAdapter], workspace: Path):
-        pipeline = {"mode": "production", "total_steps": 0, "stages": []}
-        for adapter in adapters:
-            output = self.context.get_output(adapter.name)
-            if hasattr(output, 'stages'):
-                for stage in output.stages:
-                    pipeline["stages"].append({
-                        "name": stage.name,
-                        "description": stage.description,
-                        "script": stage.script,
-                        "cache_key": getattr(stage, 'cache_key', stage.name),
-                        "required": getattr(stage, 'required', True),
-                        "phase": adapter.phase,
-                        "barrier": getattr(stage, 'barrier', "local")
-                    })
-        pipeline["total_steps"] = len(pipeline["stages"])
-        with open(workspace / "pipeline.yaml", "w") as f:
-            yaml.dump(pipeline, f, sort_keys=False)
-    
     def generate_kustomization_files(self, generated_dir: Path):
         """Generate kustomization.yaml files for base, core, and foundation"""
         
@@ -278,12 +259,17 @@ class PlatformEngine:
             core_files = sorted([f.name for f in core_dir.iterdir() if f.is_file() and f.suffix == '.yaml'])
             
             kustomization_content = "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n\nresources:\n"
+            # Include base first (contains Crossplane, cert-manager, etc.)
+            kustomization_content += "- ../../base\n"
             for file in core_files:
                 kustomization_content += f"- {file}\n"
             
-            # Add subdirectories that contain kustomization.yaml
+            # Add subdirectories that contain kustomization.yaml (exclude agentgateway - handled by Applications)
             for subdir in sorted(core_dir.iterdir()):
                 if subdir.is_dir() and (subdir / "kustomization.yaml").exists():
+                    # Skip agentgateway directories - they're deployed via separate Applications
+                    if subdir.name in ["agentgateway", "agentgateway-httproute"]:
+                        continue
                     kustomization_content += f"- {subdir.name}\n"
             
             (core_dir / "kustomization.yaml").write_text(kustomization_content)

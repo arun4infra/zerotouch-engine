@@ -19,14 +19,9 @@ class KSOPSScripts(str, Enum):
     # Init (1 script - moved from pre_work)
     SETUP_ENV_SECRETS = "init/setup-env-secrets.sh"
     
-    # Pre-work (5 scripts)
-    GENERATE_AGE_KEYS = "pre_work/08b-generate-age-keys.sh"
-    RETRIEVE_AGE_KEY = "pre_work/retrieve-age-key.sh"
-    INJECT_OFFLINE_KEY = "pre_work/inject-offline-key.sh"
-    CREATE_AGE_BACKUP_UTIL = "pre_work/create-age-backup.sh"
-    BACKUP_AGE_TO_S3 = "pre_work/08b-backup-age-to-s3.sh"
+    # Pre-work (removed - all handled by init/setup-env-secrets.sh)
     
-    # Bootstrap (4 scripts - removed INJECT_IDENTITIES, ENV_SUBSTITUTION, BOOTSTRAP_STORAGE)
+    # Bootstrap (4 scripts)
     INSTALL_KSOPS = "bootstrap/08a-install-ksops.sh"
     INJECT_AGE_KEY = "bootstrap/08c-inject-age-key.sh"
     CREATE_AGE_BACKUP = "bootstrap/08d-create-age-backup.sh"
@@ -61,6 +56,22 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
         """Load adapter.yaml metadata from KSOPS adapter directory"""
         metadata_path = Path(__file__).parent / "adapter.yaml"
         return yaml.safe_load(metadata_path.read_text())
+    
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for KSOPS bootstrap stages"""
+        from pathlib import Path
+        
+        repo_root = Path.cwd()
+        
+        return {
+            's3_endpoint': self.config.get('s3_endpoint', ''),
+            's3_region': self.config.get('s3_region', ''),
+            's3_bucket_name': self.config.get('s3_bucket_name', ''),
+            'repo_root': str(repo_root),
+            'sops_config_path': str(repo_root / 'platform' / '.sops.yaml'),
+            'secrets_dir': str(repo_root / 'platform' / 'generated' / 'argocd' / 'k8' / 'secrets'),
+            'age_public_key': self.config.get('age_public_key', ''),
+        }
     
     @property
     def config_model(self) -> Type[BaseModel]:
@@ -145,86 +156,11 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
         
         return None
     
+
+    
     def pre_work_scripts(self) -> List[ScriptReference]:
-        """Pre-work scripts (automated pre-installation)"""
-        config = KSOPSConfig(**self.config)
-        
-        return [
-            ScriptReference(
-                package="workflow_engine.adapters.ksops.scripts",
-                resource=KSOPSScripts.GENERATE_AGE_KEYS,
-                description="Generate or retrieve Age keypair",
-                timeout=60,
-                context_data={
-                    "s3_endpoint": config.s3_endpoint,
-                    "s3_region": config.s3_region,
-                    "s3_bucket_name": config.s3_bucket_name
-                },
-                secret_env_vars={
-                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
-                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
-                }
-            ),
-            ScriptReference(
-                package="workflow_engine.adapters.ksops.scripts",
-                resource=KSOPSScripts.SETUP_ENV_SECRETS,
-                description="Setup environment-specific secrets",
-                timeout=300,
-                context_data={
-                    "s3_endpoint": config.s3_endpoint,
-                    "s3_region": config.s3_region,
-                    "s3_bucket_name": config.s3_bucket_name
-                },
-                secret_env_vars={
-                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
-                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
-                }
-            ),
-            ScriptReference(
-                package="workflow_engine.adapters.ksops.scripts",
-                resource=KSOPSScripts.RETRIEVE_AGE_KEY,
-                description="Retrieve Age key from S3",
-                timeout=60,
-                context_data={
-                    "s3_endpoint": config.s3_endpoint,
-                    "s3_region": config.s3_region,
-                    "s3_bucket_name": config.s3_bucket_name
-                },
-                secret_env_vars={
-                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
-                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
-                }
-            ),
-            ScriptReference(
-                package="workflow_engine.adapters.ksops.scripts",
-                resource=KSOPSScripts.INJECT_OFFLINE_KEY,
-                description="Emergency: inject Age key into cluster",
-                timeout=30,
-                context_data={}
-            ),
-            ScriptReference(
-                package="workflow_engine.adapters.ksops.scripts",
-                resource=KSOPSScripts.CREATE_AGE_BACKUP_UTIL,
-                description="Create Age key backup utility",
-                timeout=30,
-                context_data={}
-            ),
-            ScriptReference(
-                package="workflow_engine.adapters.ksops.scripts",
-                resource=KSOPSScripts.BACKUP_AGE_TO_S3,
-                description="Backup Age key to S3",
-                timeout=60,
-                context_data={
-                    "s3_endpoint": config.s3_endpoint,
-                    "s3_region": config.s3_region,
-                    "s3_bucket_name": config.s3_bucket_name
-                },
-                secret_env_vars={
-                    "S3_ACCESS_KEY": config.s3_access_key.get_secret_value(),
-                    "S3_SECRET_KEY": config.s3_secret_key.get_secret_value()
-                }
-            )
-        ]
+        """Pre-work scripts - all handled by init/setup-env-secrets.sh"""
+        return []
     
     def bootstrap_scripts(self) -> List[ScriptReference]:
         """Core KSOPS setup scripts (GitHub scripts removed - now in GitHub adapter)"""
@@ -391,8 +327,8 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
         manifests = {".sops.yaml": sops_yaml_content}
         
         # Get ArgoCD repo URL and branch from platform config using cross-adapter access
-        repo_url = self.get_cross_adapter_config("argocd", "platform_repo_url") or ""
-        target_revision = self.get_cross_adapter_config("argocd", "platform_repo_branch") or "main"
+        repo_url = self.get_cross_adapter_config("argocd", "control_plane_repo_url")
+        target_revision = self.get_cross_adapter_config("argocd", "control_plane_repo_branch")
         
         # Render secrets ArgoCD Application
         secrets_app_template = self.jinja_env.get_template("ksops/secrets-application.yaml.j2")
@@ -401,12 +337,12 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
             target_revision=target_revision
         )
         
-        # Move secrets from platform/secrets/ to generated/argocd/k8/core/secrets/
+        # Move secrets from platform/secrets/ to generated/secrets/
         secrets_source = Path("platform/secrets")
         if secrets_source.exists():
             for secret_file in secrets_source.glob("*.secret.yaml"):
                 content = secret_file.read_text()
-                manifests[f"argocd/k8/core/secrets/{secret_file.name}"] = content
+                manifests[f"secrets/{secret_file.name}"] = content
                 secret_file.unlink()  # Delete source file after copying
             
             # Move kustomization.yaml and ksops-generator.yaml if they exist
@@ -414,7 +350,7 @@ class KSOPSAdapter(PlatformAdapter, CLIExtension):
                 support_path = secrets_source / support_file
                 if support_path.exists():
                     content = support_path.read_text()
-                    manifests[f"argocd/k8/core/secrets/{support_file}"] = content
+                    manifests[f"secrets/{support_file}"] = content
                     support_path.unlink()  # Delete source file after copying
             
             # Remove empty secrets directory

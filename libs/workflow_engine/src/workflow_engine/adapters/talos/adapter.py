@@ -50,11 +50,13 @@ class TalosConfig(BaseModel):
 class TalosScripts(str, Enum):
     """Talos adapter script resources (validated at class load time)"""
     ENABLE_RESCUE = "pre_work/enable-rescue-mode.sh"
-    EMBED_NETWORK = "bootstrap/embed-network-manifests.sh"
     INSTALL = "bootstrap/install-talos.sh"
-    BOOTSTRAP = "bootstrap/bootstrap-talos.sh"
-    ADD_WORKERS = "bootstrap/add-worker-nodes.sh"
+    GENERATE_CONFIG = "bootstrap/03-generate-config.sh"
+    BOOTSTRAP = "bootstrap/04-bootstrap-talos.sh"
+    ADD_WORKERS = "bootstrap/05-add-worker-nodes.sh"
     VALIDATE_CLUSTER = "validation/validate-cluster.sh"
+
+
 
 
 class TalosAdapter(PlatformAdapter):
@@ -173,17 +175,8 @@ class TalosAdapter(PlatformAdapter):
     def bootstrap_scripts(self) -> List[ScriptReference]:
         """Return bootstrap scripts with context_data"""
         config = TalosConfig(**self.config)
-        
+
         return [
-            ScriptReference(
-                package="workflow_engine.adapters.talos.scripts",
-                resource=TalosScripts.EMBED_NETWORK,
-                description="Embed Gateway API CRDs and Cilium CNI in Talos config",
-                timeout=60,
-                context_data={
-                    "cluster_name": config.cluster_name
-                }
-            ),
             ScriptReference(
                 package="workflow_engine.adapters.talos.scripts",
                 resource=TalosScripts.INSTALL,
@@ -192,6 +185,18 @@ class TalosAdapter(PlatformAdapter):
                 context_data={
                     "nodes": [node.model_dump() for node in config.nodes],
                     "factory_image_id": config.factory_image_id,
+                    "disk_device": config.disk_device
+                }
+            ),
+            ScriptReference(
+                package="workflow_engine.adapters.talos.scripts",
+                resource=TalosScripts.GENERATE_CONFIG,
+                description="Generate complete Talos configs with provider-id and CNI",
+                timeout=120,
+                context_data={
+                    "cluster_name": config.cluster_name,
+                    "cluster_endpoint": config.cluster_endpoint,
+                    "nodes": [n.model_dump() for n in config.nodes],
                     "disk_device": config.disk_device
                 }
             ),
@@ -215,6 +220,8 @@ class TalosAdapter(PlatformAdapter):
                 }
             )
         ]
+
+
     
     def post_work_scripts(self) -> List[ScriptReference]:
         """Talos doesn't have post-work scripts"""
@@ -235,41 +242,40 @@ class TalosAdapter(PlatformAdapter):
         ]
     
     async def render(self, ctx: 'ContextSnapshot') -> AdapterOutput:
-        """Generate Talos machine configs per node"""
+        """Render only returns script references - config generation happens during bootstrap"""
+        import httpx
+        
         config = TalosConfig(**self.config)
         
-        manifests = {}
+        # Get versions from VersionProvider (no fallbacks - must be in versions.yaml)
+        kubernetes_version = self._get_version_config('talos', 'default_kubernetes_version')
+        installer_image = self._get_version_config('talos', 'default_installer_image')
+        kubelet_image = self._get_version_config('talos', 'default_kubelet_image')
+        coredns_image = self._get_version_config('talos', 'default_coredns_image')
+        gateway_api_crds_version = self._get_version_config('gateway_api', 'default_crds_version')
         
-        # Render per-node configs
-        for node in config.nodes:
-            template_name = f"talos/{node.role}.yaml.j2"
-            template = self.jinja_env.get_template(template_name)
-            
-            # Get CNI manifests from context
-            cni_manifests = ""
-            if ctx and hasattr(ctx, 'get_capability_data'):
-                cni_data = ctx.get_capability_data('cni')
-                if cni_data:
-                    cni_manifests = cni_data.manifests
-            
-            node_config = await template.render_async(
-                cluster_name=config.cluster_name,
-                cluster_endpoint=config.cluster_endpoint,
-                node_name=node.name,
-                node_ip=node.ip,
-                disk_device=config.disk_device,
-                cni_manifests=cni_manifests
-            )
-            
-            manifests[f"talos/nodes/{node.name}/config.yaml"] = node_config
+        if not all([kubernetes_version, installer_image, kubelet_image, coredns_image, gateway_api_crds_version]):
+            raise ValueError("Missing required Talos version configuration in versions.yaml")
         
-        # Generate talosconfig
-        talosconfig_template = self.jinja_env.get_template("talos/talosconfig.j2")
-        talosconfig = await talosconfig_template.render_async(
-            cluster_name=config.cluster_name,
-            cluster_endpoint=config.cluster_endpoint
-        )
-        manifests["talos/talosconfig"] = talosconfig
+        # Fetch Gateway API CRDs
+        gateway_api_url = f"https://github.com/kubernetes-sigs/gateway-api/releases/download/{gateway_api_crds_version}/standard-install.yaml"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(gateway_api_url, follow_redirects=True)
+            response.raise_for_status()
+            gateway_api_crds = response.text
+        
+        # Get CNI manifests from context to pass to config generation script
+        cni_manifests = ""
+        if ctx and hasattr(ctx, 'get_capability_data'):
+            cni_data = ctx.get_capability_data('cni')
+            if cni_data:
+                cni_manifests = cni_data.manifests
+        
+        manifests = {
+            "talos/cni-manifests.yaml": cni_manifests,
+            "talos/gateway-api-crds.yaml": gateway_api_crds
+        }
         
         # Create Kubernetes API capability
         k8s_capability = KubernetesAPICapability(
@@ -294,7 +300,25 @@ class TalosAdapter(PlatformAdapter):
             }
         )
     
-    def load_metadata(self) -> Dict[str, Any]:
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Talos bootstrap stages"""
+        context = {
+            'cluster_name': self.config.get('cluster_name', ''),
+            'cluster_endpoint': self.config.get('cluster_endpoint', ''),
+            'factory_image_id': self.config.get('factory_image_id', ''),
+            'nodes': self.config.get('nodes', []),
+        }
+        
+        # Add controlplane/server IP from nodes
+        nodes = self.config.get('nodes', [])
+        if nodes:
+            for node in nodes:
+                if node.get('role') == 'controlplane':
+                    context['controlplane_ip'] = node.get('ip', '')
+                    context['server_ip'] = node.get('ip', '')
+                    break
+        
+        return context
         """Load adapter.yaml metadata"""
         metadata_path = Path(__file__).parent / "adapter.yaml"
         if not metadata_path.exists():

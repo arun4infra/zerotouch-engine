@@ -21,6 +21,5 @@ roleRef:
   name: crossplane-kubernetes-provider
 subjects:
   - kind: ServiceAccount
-    # CRITICAL: This hash matches v0.12.1 exactly
-    name: provider-kubernetes-6ef2ebb6f1db
+    name: provider-kubernetes-{{ sa_hash }}
     namespace: {{ namespace }}

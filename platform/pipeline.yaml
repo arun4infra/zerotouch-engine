@@ -1,0 +1,172 @@
+mode: production
+total_steps: 22
+stages:
+- name: rescue_mode
+  selection_group: cloud_provider
+  adapter: hetzner
+  description: Enable rescue mode and wait for boot
+  script: hetzner/scripts/bootstrap/01-enable-rescue-mode.sh
+  cache_key: rescue_mode
+  required: true
+- name: rescue_wait
+  selection_group: cloud_provider
+  adapter: hetzner
+  description: Wait 90s for server to reboot into rescue mode
+  script: hetzner/scripts/bootstrap/rescue/wait-for-reboot.sh
+  cache_key: rescue_wait
+  required: true
+- name: talos_install
+  selection_group: os
+  adapter: talos
+  description: Install Talos OS on bare-metal server
+  script: talos/scripts/bootstrap/02-install-talos.sh
+  cache_key: talos_install
+  required: true
+- name: talos_config
+  selection_group: os
+  adapter: talos
+  description: Generate complete Talos configs with provider-id and CNI
+  script: talos/scripts/bootstrap/03-generate-config.sh
+  cache_key: talos_config
+  required: true
+- name: talos_bootstrap
+  selection_group: os
+  adapter: talos
+  description: Bootstrap Talos cluster and generate credentials
+  script: talos/scripts/bootstrap/04-bootstrap-talos.sh
+  cache_key: talos_bootstrap
+  required: true
+- name: worker_nodes
+  selection_group: os
+  adapter: talos
+  description: Add worker nodes to cluster
+  script: talos/scripts/bootstrap/05-add-worker-nodes.sh
+  cache_key: worker_nodes
+  required: false
+  skip_if_empty: WORKER_NODES
+- name: cilium_ready
+  selection_group: network_tool
+  adapter: cilium
+  description: Wait for CNI to be ready
+  script: cilium/scripts/bootstrap/01-wait-cilium.sh
+  cache_key: cilium_ready
+  required: true
+- name: gateway_api_ready
+  selection_group: network_tool
+  adapter: cilium
+  description: Validate Gateway API CRDs readiness
+  script: cilium/scripts/bootstrap/02-wait-gateway-api.sh
+  cache_key: gateway_api_ready
+  required: true
+- name: ksops_setup
+  selection_group: secrets_management
+  adapter: ksops
+  description: Setup KSOPS (SOPS + Age + Key Generation)
+  script: ksops/scripts/bootstrap/08a-install-ksops.sh
+  cache_key: ksops_setup
+  required: true
+- name: env_substitution
+  selection_group: git_provider
+  adapter: github
+  description: Apply environment variable substitution to manifests
+  script: github/scripts/bootstrap/apply-env-substitution.sh
+  cache_key: env_substitution
+  required: true
+- name: argocd_install
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Install ArgoCD (CLI, server, pods)
+  script: argocd/scripts/bootstrap/install-argocd.sh
+  cache_key: argocd_install
+  required: true
+  args:
+  - $MODE
+  - $ENV
+- name: ksops_inject_key
+  selection_group: secrets_management
+  adapter: ksops
+  description: Inject Age key into ArgoCD namespace
+  script: ksops/scripts/bootstrap/08c-inject-age-key.sh
+  cache_key: ksops_inject_key
+  required: true
+- name: argocd_repo_restart
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Restart ArgoCD repo-server to mount Age key
+  script: argocd/scripts/bootstrap/restart-repo-server.sh
+  cache_key: argocd_repo_restart
+  required: true
+- name: ksops_package
+  selection_group: secrets_management
+  adapter: ksops
+  description: Deploy KSOPS package to ArgoCD
+  script: ksops/scripts/bootstrap/08e-deploy-ksops-package.sh
+  cache_key: ksops_package
+  required: true
+- name: argocd_repo_ready
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Wait for ArgoCD repo-server with KSOPS plugin
+  script: argocd/scripts/bootstrap/03-wait-repo-server.sh
+  cache_key: argocd_repo_ready
+  required: true
+  args:
+  - --timeout
+  - '120'
+  - --namespace
+  - $ARGOCD_NAMESPACE
+- name: github_identities
+  selection_group: git_provider
+  adapter: github
+  description: Inject GitHub App credentials into ArgoCD namespace
+  script: github/scripts/bootstrap/00-inject-identities.sh
+  cache_key: github_identities
+  required: true
+- name: root_app_deploy
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Deploy ArgoCD root application
+  script: argocd/scripts/bootstrap/03-deploy-root-app.sh
+  cache_key: root_app_deploy
+  required: true
+  args:
+  - $MODE
+  - $ENV
+- name: platform_bootstrap
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Wait for platform-bootstrap application sync
+  script: argocd/scripts/bootstrap/04-wait-platform-bootstrap.sh
+  cache_key: platform_bootstrap
+  required: true
+- name: verify_ksops
+  selection_group: secrets_management
+  adapter: ksops
+  description: Verify KSOPS secret decryption
+  script: ksops/scripts/validation/11-verify-ksops.sh
+  cache_key: null
+  required: true
+- name: verify_child_apps
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Verify ArgoCD child applications
+  script: argocd/scripts/bootstrap/05-verify-child-apps.sh
+  cache_key: null
+  required: true
+- name: wait_apps_healthy
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Wait for all applications to be healthy
+  script: argocd/scripts/bootstrap/06-wait-apps-healthy.sh
+  cache_key: null
+  required: true
+  args:
+  - --timeout
+  - '600'
+- name: validate_cluster
+  selection_group: gitops_platform
+  adapter: argocd
+  description: Final cluster validation
+  script: argocd/scripts/bootstrap/07-validate-cluster.sh
+  cache_key: null
+  required: true

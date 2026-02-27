@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: {{ platform_repo_url }}
     targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/argocd/overlays/main/{{ environment }}/gateway-config
+    path: generated/argocd/k8/overlays/{{ environment }}/gateway-config
   destination:
     server: https://kubernetes.default.svc
   ignoreDifferences:

@@ -63,7 +63,7 @@ else
 fi
 
 # Install KSOPS kustomize plugin
-local PLUGIN_DIR="$HOME/.config/kustomize/plugin/viaduct.ai/v1/ksops"
+PLUGIN_DIR="$HOME/.config/kustomize/plugin/viaduct.ai/v1/ksops"
 
 if [ -f "$PLUGIN_DIR/ksops" ]; then
     echo "✓ KSOPS plugin already installed"

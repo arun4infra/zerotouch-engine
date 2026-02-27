@@ -143,9 +143,49 @@ class CiliumAdapter(PlatformAdapter):
         """Generate Cilium manifests and capability data"""
         config = CiliumConfig(**self.config)
         
-        # Use complete bootstrap manifest from reference
-        template = self.jinja_env.get_template("cilium/complete-bootstrap.yaml.j2")
-        manifests_content = await template.render_async(version=config.version)
+        # Get ArgoCD repo URL from cross-adapter config
+        repo_url = self.get_cross_adapter_config('argocd', 'control_plane_repo_url')
+        
+        # Load environment-specific overlay config
+        env = self._get_environment()
+        overlay_config = self._load_overlay_config(env)
+        operator_replicas = overlay_config.get('cilium', {}).get('operator_replicas', 2)
+        
+        # Get Envoy and Cilium images from VersionProvider (no fallbacks)
+        envoy_image = self._get_version_config('cilium', 'default_envoy_image')
+        cilium_image = self._get_version_config('cilium', 'default_cilium_image')
+        operator_image = self._get_version_config('cilium', 'default_operator_image')
+        
+        if not all([envoy_image, cilium_image, operator_image]):
+            raise ValueError("Missing required Cilium image configuration in versions.yaml")
+        
+        # Load and render all modular templates in order
+        template_files = [
+            "bootstrap/01-crds.yaml.j2",
+            "bootstrap/02-serviceaccounts.yaml.j2",
+            "bootstrap/03-configmaps.yaml.j2",
+            "bootstrap/04-envoy-config.yaml.j2",
+            "bootstrap/05-rbac.yaml.j2",
+            "bootstrap/06-rolebindings.yaml.j2",
+            "bootstrap/07-agent-daemonset.yaml.j2",
+            "bootstrap/08-envoy-daemonset.yaml.j2",
+            "bootstrap/09-operator-deployment.yaml.j2"
+        ]
+        
+        rendered_parts = []
+        for template_file in template_files:
+            template = self.jinja_env.get_template(f"cilium/{template_file}")
+            rendered = await template.render_async(
+                version=config.version,
+                operator_replicas=operator_replicas,
+                envoy_image=envoy_image,
+                cilium_image=cilium_image,
+                operator_image=operator_image
+            )
+            rendered_parts.append(rendered)
+        
+        # Concatenate all rendered templates with separator
+        manifests_content = "\n---\n".join(rendered_parts)
         
         # Create CNI capability
         cni_capability = CNIArtifacts(
@@ -162,7 +202,7 @@ class CiliumAdapter(PlatformAdapter):
         manifests = {}
         
         # 1. ArgoCD Application for Gateway API (wave 4)
-        manifests["argocd/k8/core/04-gateway-config.yaml"] = self._render_gateway_argocd_app()
+        manifests["argocd/k8/core/04-gateway-config.yaml"] = self._render_gateway_argocd_app(repo_url)
         
         # 2. CNI manifests for Talos bootstrap embedding
         manifests["talos/templates/cilium/02-configmaps.yaml"] = manifests_content
@@ -185,7 +225,7 @@ class CiliumAdapter(PlatformAdapter):
             }
         )
     
-    def _render_gateway_argocd_app(self) -> str:
+    def _render_gateway_argocd_app(self, repo_url: str) -> str:
         """Generate ArgoCD Application for Gateway API"""
         app = {
             "apiVersion": "argoproj.io/v1alpha1",
@@ -200,9 +240,9 @@ class CiliumAdapter(PlatformAdapter):
             "spec": {
                 "project": "default",
                 "source": {
-                    "repoURL": "https://github.com/arun4infra/zerotouch-platform.git",
+                    "repoURL": repo_url,
                     "targetRevision": "main",
-                    "path": "bootstrap/argocd/k8/core/gateway/gateway-foundation"
+                    "path": "platform/generated/argocd/k8/core/gateway/gateway-foundation"
                 },
                 "destination": {
                     "server": "https://kubernetes.default.svc",
@@ -218,6 +258,25 @@ class CiliumAdapter(PlatformAdapter):
             }
         }
         return yaml.dump(app, sort_keys=False)
+    
+    def _get_environment(self) -> str:
+        """Get current environment from platform config or context"""
+        # Try to get from platform.yaml
+        platform_yaml = Path("platform/platform.yaml")
+        if platform_yaml.exists():
+            with open(platform_yaml) as f:
+                platform_data = yaml.safe_load(f)
+                mode = platform_data.get('platform', {}).get('mode', 'dev')
+                return mode
+        return 'dev'
+    
+    def _load_overlay_config(self, env: str) -> Dict[str, Any]:
+        """Load environment-specific overlay configuration"""
+        overlay_path = Path(__file__).parent.parent.parent / f"templates/overlays/{env}/configs.yaml"
+        if overlay_path.exists():
+            with open(overlay_path) as f:
+                return yaml.safe_load(f) or {}
+        return {}
     
     def load_metadata(self) -> Dict[str, Any]:
         """Load adapter.yaml metadata"""
@@ -239,3 +298,11 @@ class CiliumAdapter(PlatformAdapter):
                 ]
             }
         return yaml.safe_load(metadata_path.read_text())
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Cilium bootstrap stages"""
+        return {
+            'version': self.config['version'],
+            'bgp_enabled': self.config.get('bgp', {}).get('enabled'),
+            'bgp_asn': self.config.get('bgp', {}).get('asn'),
+        }

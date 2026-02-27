@@ -9,7 +9,7 @@ from workflow_engine.engine.bootstrap_executor import (
     BootstrapExecutor,
     StageResult,
 )
-from workflow_engine.engine.pipeline_generator import PipelineGenerator
+from workflow_engine.engine.bootstrap_pipeline import generate_bootstrap_pipeline
 from workflow_engine.engine.script_executor import (
     ScriptExecutor,
     ExecutionResult,
@@ -35,7 +35,7 @@ __all__ = [
     "CircularDependencyError",
     "BootstrapExecutor",
     "StageResult",
-    "PipelineGenerator",
+    "generate_bootstrap_pipeline",
     "ScriptExecutor",
     "ExecutionResult",
     "PlatformEngine",

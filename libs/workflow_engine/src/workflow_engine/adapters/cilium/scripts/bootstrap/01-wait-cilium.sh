@@ -63,11 +63,30 @@ echo ""
 
 # Wait for Cilium agent pods
 echo "⏳ Waiting for Cilium agent pods..."
-kubectl_retry wait --for=condition=ready pod -n kube-system -l k8s-app=cilium --timeout=180s
+if ! kubectl_retry wait --for=condition=ready pod -n kube-system -l k8s-app=cilium --timeout=180s; then
+    echo "✗ Cilium agent pods failed to become ready"
+    exit 1
+fi
 
-# Wait for Cilium operator
-echo "⏳ Waiting for Cilium operator (2 replicas in HA mode)..."
-kubectl_retry wait --for=condition=ready pod -n kube-system -l name=cilium-operator --timeout=180s
+# Wait for Cilium operator (all configured replicas must be ready)
+echo "⏳ Waiting for Cilium operator..."
+OPERATOR_REPLICAS=$(kubectl get deployment -n kube-system cilium-operator -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "1")
+echo "   Expected replicas: $OPERATOR_REPLICAS"
+
+for i in {1..20}; do
+    READY_REPLICAS=$(kubectl get deployment -n kube-system cilium-operator -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+    if [ "$READY_REPLICAS" -eq "$OPERATOR_REPLICAS" ]; then
+        echo "✓ Cilium operator ready ($READY_REPLICAS/$OPERATOR_REPLICAS replicas)"
+        break
+    fi
+    if [ $i -eq 20 ]; then
+        echo "✗ Cilium operator failed: only $READY_REPLICAS/$OPERATOR_REPLICAS replicas ready after 20 attempts"
+        kubectl get pods -n kube-system -l name=cilium-operator
+        exit 1
+    fi
+    echo "   Waiting for operator replicas: $READY_REPLICAS/$OPERATOR_REPLICAS (attempt $i/20)"
+    sleep 3
+done
 
 # Verify Cilium health
 echo "Verifying Cilium health..."
@@ -78,15 +97,47 @@ else
     echo "⚠️  Cilium status check failed, but continuing (basic connectivity verified)"
 fi
 
-# Restart Cilium operator to ensure Gateway API CRDs are properly detected
-# This handles the race condition where Cilium starts before CRDs are fully established
-echo "⏳ Restarting Cilium operator to ensure Gateway API detection..."
-kubectl_retry rollout restart deployment/cilium-operator -n kube-system
-kubectl_retry rollout status deployment/cilium-operator -n kube-system --timeout=120s
-echo "✓ Cilium operator restarted"
+# Validate Gateway API CRDs are loaded and Cilium detected them
+echo "⏳ Validating Gateway API CRDs are available..."
+GATEWAY_CRDS_READY=false
+for i in {1..30}; do
+    if kubectl get crd gatewayclasses.gateway.networking.k8s.io &>/dev/null && \
+       kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null && \
+       kubectl get crd httproutes.gateway.networking.k8s.io &>/dev/null; then
+        GATEWAY_CRDS_READY=true
+        break
+    fi
+    echo "  Waiting for Gateway API CRDs... (attempt $i/30)"
+    sleep 2
+done
+
+if [ "$GATEWAY_CRDS_READY" = "false" ]; then
+    echo "⚠️  Gateway API CRDs not found after 60s"
+    echo "   This may indicate Talos inline manifests didn't load properly"
+    exit 1
+fi
+echo "✓ Gateway API CRDs are established"
+
+# Validate Cilium Gateway API support
+echo "⏳ Validating Cilium Gateway API support..."
+# Check if Cilium-specific Gateway API CRDs are present
+if kubectl get crd ciliumenvoyconfigs.cilium.io &>/dev/null && \
+   kubectl get crd ciliumgatewayclassconfigs.cilium.io &>/dev/null; then
+    echo "✓ Cilium Gateway API CRDs are installed"
+else
+    echo "✗ Cilium Gateway API CRDs are missing"
+    echo "   Expected: ciliumenvoyconfigs.cilium.io, ciliumgatewayclassconfigs.cilium.io"
+    exit 1
+fi
+
+OPERATOR_REPLICAS=$(kubectl get deployment -n kube-system cilium-operator -o jsonpath='{.spec.replicas}')
 
 echo ""
 echo "✓ Cilium CNI is ready - networking operational"
-echo "ℹ  Note: Cilium operator running with 2 replicas (HA mode with worker node)"
-echo "ℹ  Gateway API support enabled via inline manifest CRDs"
+if [ "$OPERATOR_REPLICAS" -eq 1 ]; then
+    echo "ℹ  Note: Cilium operator running with 1 replica (single-node mode)"
+else
+    echo "ℹ  Note: Cilium operator running with $OPERATOR_REPLICAS replicas (HA mode)"
+fi
+echo "ℹ  Gateway API CRDs embedded in Talos config - loaded before Cilium"
 echo ""

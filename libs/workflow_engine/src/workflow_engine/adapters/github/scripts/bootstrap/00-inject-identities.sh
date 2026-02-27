@@ -32,6 +32,7 @@ fi
 # Extract context data using jq
 GIT_APP_ID=$(jq -r '.github_app_id' "$ZTC_CONTEXT_FILE")
 INSTALLATION_ID=$(jq -r '.github_app_installation_id' "$ZTC_CONTEXT_FILE")
+TENANT_ORG=$(jq -r '.tenant_org_name' "$ZTC_CONTEXT_FILE")
 
 # Verify required context data
 if [[ -z "$GIT_APP_ID" || "$GIT_APP_ID" == "null" ]]; then
@@ -44,14 +45,20 @@ if [[ -z "$INSTALLATION_ID" || "$INSTALLATION_ID" == "null" ]]; then
     exit 1
 fi
 
+if [[ -z "$TENANT_ORG" || "$TENANT_ORG" == "null" ]]; then
+    echo -e "${RED}✗ Error: tenant_org_name not found in context${NC}" >&2
+    exit 1
+fi
+
 # Verify secret environment variable
-if [[ -z "${GITHUB_APP_PRIVATE_KEY:-}" ]]; then
-    echo -e "${RED}✗ Error: GITHUB_APP_PRIVATE_KEY environment variable not set${NC}" >&2
+if [[ -z "${GIT_APP_PRIVATE_KEY:-}" ]]; then
+    echo -e "${RED}✗ Error: GIT_APP_PRIVATE_KEY environment variable not set${NC}" >&2
     exit 1
 fi
 
 echo -e "${GREEN}✓ GitHub App ID: $GIT_APP_ID${NC}"
 echo -e "${GREEN}✓ Installation ID: $INSTALLATION_ID${NC}"
+echo -e "${GREEN}✓ Organization: $TENANT_ORG (applies to all repos)${NC}"
 echo -e "${GREEN}✓ Private key loaded from environment${NC}"
 echo ""
 
@@ -68,15 +75,26 @@ kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - > 
 echo -e "${GREEN}✓ ArgoCD namespace ready${NC}"
 echo ""
 
-# Create or update the secret
-echo -e "${BLUE}Creating GitHub App credentials secret...${NC}"
+# Create or update the secret with ArgoCD repo-creds label
+echo -e "${BLUE}Creating GitHub App repository credentials secret...${NC}"
 
-kubectl create secret generic argocd-github-app-creds \
-    --namespace=argocd \
-    --from-literal=githubAppID="$GIT_APP_ID" \
-    --from-literal=githubAppInstallationID="$INSTALLATION_ID" \
-    --from-literal=githubAppPrivateKey="$GITHUB_APP_PRIVATE_KEY" \
-    --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
+cat <<EOF | kubectl apply -f - > /dev/null 2>&1
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-github-app-creds
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repo-creds
+type: Opaque
+stringData:
+  type: git
+  url: https://github.com/$TENANT_ORG
+  githubAppID: "$GIT_APP_ID"
+  githubAppInstallationID: "$INSTALLATION_ID"
+  githubAppPrivateKey: |
+$(echo "$GIT_APP_PRIVATE_KEY" | sed 's/^/    /')
+EOF
 
 if [[ $? -eq 0 ]]; then
     echo -e "${GREEN}✓ Secret argocd-github-app-creds created/updated successfully${NC}"

@@ -138,3 +138,9 @@ class CertManagerAdapter(PlatformAdapter):
             capabilities=capability_data,
             data={}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Cert Manager bootstrap stages"""
+        return {
+            'version': self.config['version'],
+        }

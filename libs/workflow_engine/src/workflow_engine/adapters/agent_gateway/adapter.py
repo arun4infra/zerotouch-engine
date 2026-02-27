@@ -118,13 +118,16 @@ class AgentGatewayAdapter(PlatformAdapter):
             "namespace": config.namespace,
             "domain": config.domain,
             "mode": config.mode,
-            "platform_repo_url": "https://github.com/arun4infra/zerotouch-platform.git",
+            "platform_repo_url": self.get_cross_adapter_config('argocd', 'control_plane_repo_url'),
             "platform_repo_branch": "main"
         }
         
-        # Render application manifest
+        # Render application manifests (split into two: agentgateway and agentgateway-httproute)
         app_template = self.jinja_env.get_template("agent_gateway/application.yaml.j2")
         manifests["argocd/base/06-agentgateway.yaml"] = await app_template.render_async(**template_ctx)
+        
+        httproute_app_template = self.jinja_env.get_template("agent_gateway/httproute-application.yaml.j2")
+        manifests["argocd/base/07-agentgateway-httproute.yaml"] = await httproute_app_template.render_async(**template_ctx)
         
         # Render agentgateway manifests
         configmap_template = self.jinja_env.get_template("agent_gateway/manifests/configmap.yaml.j2")
@@ -156,3 +159,7 @@ class AgentGatewayAdapter(PlatformAdapter):
             capabilities=capability_data,
             data={}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Agent Gateway bootstrap stages"""
+        return {'version': self.config['version']}

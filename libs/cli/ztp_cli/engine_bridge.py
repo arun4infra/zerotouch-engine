@@ -9,6 +9,8 @@ from workflow_engine.orchestration.init_workflow_orchestrator import InitWorkflo
 from workflow_engine.orchestration.validation_orchestrator import ValidationOrchestrator
 from workflow_engine.orchestration.prerequisite_checker import PrerequisiteChecker
 from workflow_engine.orchestration.render_orchestrator import RenderOrchestrator
+from workflow_engine.orchestration.bootstrap_orchestrator import BootstrapOrchestrator
+from workflow_engine.orchestration.sync_orchestrator import SyncOrchestrator
 
 # Services
 from workflow_engine.services.platform_config_service import PlatformConfigService
@@ -34,6 +36,8 @@ __all__ = [
     "ValidationOrchestrator",
     "PrerequisiteChecker",
     "RenderOrchestrator",
+    "BootstrapOrchestrator",
+    "SyncOrchestrator",
     # Services
     "PlatformConfigService",
     "SessionStateService",

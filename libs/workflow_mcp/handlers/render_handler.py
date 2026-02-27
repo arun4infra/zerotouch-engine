@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from workflow_engine.engine import PlatformEngine
+from workflow_engine.engine import PlatformEngine, generate_bootstrap_pipeline
 
 
 class RenderHandler:
@@ -26,14 +26,11 @@ class RenderHandler:
         
         @self.mcp.tool()
         async def generate_pipeline_yaml(platform_yaml_path: str) -> str:
-            """Generate pipeline.yaml from adapters"""
+            """Generate pipeline.yaml from platform.yaml"""
             try:
-                engine = PlatformEngine(Path(platform_yaml_path))
-                adapters = engine.resolve_adapters()
-                workspace = Path(".zerotouch-cache/workspace")
-                workspace.mkdir(parents=True, exist_ok=True)
-                engine.generate_pipeline_yaml(adapters, workspace)
-                pipeline_path = workspace / "pipeline.yaml"
+                platform_path = Path(platform_yaml_path)
+                pipeline_path = Path("platform/pipeline.yaml")
+                generate_bootstrap_pipeline(platform_path, pipeline_path)
                 with open(pipeline_path, 'r') as f:
                     content = f.read()
                 return json.dumps({"success": True, "pipeline_yaml": content})
@@ -51,19 +48,5 @@ class RenderHandler:
                 artifacts_hash = engine.hash_directory(Path("platform/generated"))
                 engine.generate_lock_file(artifacts_hash, adapters)
                 return json.dumps({"success": True, "message": "Lock file generated"})
-            except Exception as e:
-                return json.dumps({"success": False, "error": str(e)})
-        
-        @self.mcp.tool()
-        async def extract_debug_scripts(platform_yaml_path: str) -> str:
-            """Extract debug scripts from adapters"""
-            try:
-                engine = PlatformEngine(Path(platform_yaml_path))
-                adapters = engine.resolve_adapters()
-                generated_dir = Path("platform/generated")
-                if not generated_dir.exists():
-                    return json.dumps({"success": False, "error": "No generated artifacts found"})
-                engine.write_debug_scripts(adapters, generated_dir)
-                return json.dumps({"success": True, "message": "Debug scripts extracted"})
             except Exception as e:
                 return json.dumps({"success": False, "error": str(e)})

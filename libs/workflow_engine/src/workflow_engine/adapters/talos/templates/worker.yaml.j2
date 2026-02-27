@@ -10,7 +10,7 @@ machine:
   certSANs:
     - {{ node_ip }}
   kubelet:
-    image: ghcr.io/siderolabs/kubelet:v1.28.0
+    image: {{ kubelet_image }}
     extraArgs:
       rotate-server-certificates: "true"
   network:
@@ -20,7 +20,7 @@ machine:
         dhcp: true
   install:
     disk: {{ disk_device }}
-    image: ghcr.io/siderolabs/installer:v1.11.5
+    image: {{ installer_image }}
     wipe: false
   files: []
   env: {}

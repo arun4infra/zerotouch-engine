@@ -62,11 +62,11 @@ replace_tenant_url() {
 }
 
 # Process all files with tenant repo URLs
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/core/argocd-repo-configs.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/core/tenant-infrastructure.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/dev/99-tenants.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/staging/99-tenants.yaml"
-replace_tenant_url "$REPO_ROOT/bootstrap/argocd/overlays/main/prod/99-tenants.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/core/argocd-repo-configs.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/core/tenant-infrastructure.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/overlays/dev/99-tenants.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/overlays/staging/99-tenants.yaml"
+replace_tenant_url "$REPO_ROOT/platform/generated/argocd/k8/overlays/prod/99-tenants.yaml"
 
 echo ""
 echo "✅ Environment substitution complete"

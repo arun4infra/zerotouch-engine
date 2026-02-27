@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: {{ platform_repo_url }}
     targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/gateway-api/foundation
+    path: generated/argocd/k8/core/gateway/gateway-foundation
   destination:
     server: https://kubernetes.default.svc
     namespace: default
@@ -42,7 +42,7 @@ spec:
   source:
     repoURL: {{ platform_repo_url }}
     targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/gateway-api/class
+    path: generated/argocd/k8/core/gateway/gateway-class
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
@@ -70,7 +70,7 @@ spec:
   source:
     repoURL: {{ platform_repo_url }}
     targetRevision: {{ platform_repo_branch }}
-    path: platform/generated/gateway-api/config
+    path: generated/argocd/k8/core/gateway/gateway-config
   destination:
     server: https://kubernetes.default.svc
   ignoreDifferences:

@@ -99,3 +99,7 @@ class LocalPathProvisionerAdapter(PlatformAdapter):
             capabilities={"local-storage": capability},
             data={}
         )
+
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for Local Path Provisioner bootstrap stages"""
+        return {'version': self.config['version']}

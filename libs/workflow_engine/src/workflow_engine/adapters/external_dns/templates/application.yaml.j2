@@ -1,12 +1,10 @@
-{#- Source: zerotouch-platform/bootstrap/argocd/overlays/main/core/01-external-dns.yaml -#}
-{#- Migration: Converted to Jinja2 template with dynamic provider selection -#}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: external-dns
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   project: default
   source:
@@ -16,24 +14,17 @@ spec:
     helm:
       values: |
         provider:
-{%- if provider == "hetzner" %}
           name: webhook
           webhook:
             image:
-              repository: docker.io/hetzner/external-dns-hetzner-webhook
-              tag: v0.3.2
+              repository: {{ webhook_image }}
+              tag: {{ webhook_version }}
             env:
               - name: HETZNER_TOKEN
                 valueFrom:
                   secretKeyRef:
                     name: external-dns-hetzner
                     key: HETZNER_DNS_TOKEN
-{%- elif provider == "aws" %}
-          name: aws
-        serviceAccount:
-          annotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/external-dns
-{%- endif %}
         sources:
           - gateway-httproute
         domainFilters:
@@ -51,7 +42,7 @@ spec:
         txtOwnerId: external-dns
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ namespace }}
+    namespace: kube-system
   syncPolicy:
     automated:
       prune: true

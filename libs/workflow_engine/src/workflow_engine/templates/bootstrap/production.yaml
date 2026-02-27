@@ -2,28 +2,28 @@
 # Placeholders like {network_tool} are replaced with actual adapter names from platform.yaml
 
 mode: production
-total_steps: 18
+total_steps: 19
 
 stages:
-  # Step 1: Rescue mode (pre-executed, marked complete in cache)
+  # Step 1: Rescue mode
   - name: rescue_mode
     selection_group: cloud_provider
     adapter: {cloud_provider}
-    description: Server booted into rescue mode (assumed pre-executed)
-    script: null
+    description: Enable rescue mode and wait for boot
+    script: "bootstrap/01-enable-rescue-mode.sh"
     cache_key: rescue_mode
-    required: false
-
-  # Step 2: Network manifests (Talos embeds Cilium)
-  - name: network_manifests
-    selection_group: os
-    adapter: {os}
-    description: Embed Gateway API CRDs and Cilium CNI in Talos config
-    script: bootstrap/embed-network-manifests.sh
-    cache_key: network_manifests
     required: true
 
-  # Step 3: Talos installation
+  # Step 1b: Wait for reboot
+  - name: rescue_wait
+    selection_group: cloud_provider
+    adapter: {cloud_provider}
+    description: Wait 90s for server to reboot into rescue mode
+    script: "bootstrap/rescue/wait-for-reboot.sh"
+    cache_key: rescue_wait
+    required: true
+
+  # Step 2: Talos installation
   - name: talos_install
     selection_group: os
     adapter: {os}
@@ -32,12 +32,21 @@ stages:
     cache_key: talos_install
     required: true
 
+  # Step 3: Generate Talos configs
+  - name: talos_config
+    selection_group: os
+    adapter: {os}
+    description: Generate complete Talos configs with provider-id and CNI
+    script: bootstrap/03-generate-config.sh
+    cache_key: talos_config
+    required: true
+
   # Step 4: Talos bootstrap
   - name: talos_bootstrap
     selection_group: os
     adapter: {os}
     description: Bootstrap Talos cluster and generate credentials
-    script: bootstrap/03-bootstrap-talos.sh
+    script: bootstrap/04-bootstrap-talos.sh
     cache_key: talos_bootstrap
     required: true
 
@@ -46,7 +55,7 @@ stages:
     selection_group: os
     adapter: {os}
     description: Add worker nodes to cluster
-    script: bootstrap/04-add-worker-nodes.sh
+    script: bootstrap/05-add-worker-nodes.sh
     cache_key: worker_nodes
     required: false
     skip_if_empty: WORKER_NODES
@@ -80,8 +89,8 @@ stages:
 
   # Step 9: Environment substitution
   - name: env_substitution
-    selection_group: secrets_management
-    adapter: {secrets_management}
+    selection_group: git_provider
+    adapter: {git_provider}
     description: Apply environment variable substitution to manifests
     script: bootstrap/apply-env-substitution.sh
     cache_key: env_substitution
@@ -97,7 +106,25 @@ stages:
     required: true
     args: ["$MODE", "$ENV"]
 
-  # Step 11: KSOPS package deployment
+  # Step 11: Inject Age key
+  - name: ksops_inject_key
+    selection_group: secrets_management
+    adapter: {secrets_management}
+    description: Inject Age key into ArgoCD namespace
+    script: bootstrap/08c-inject-age-key.sh
+    cache_key: ksops_inject_key
+    required: true
+
+  # Step 11b: Restart repo-server to mount Age key
+  - name: argocd_repo_restart
+    selection_group: gitops_platform
+    adapter: {gitops_platform}
+    description: Restart ArgoCD repo-server to mount Age key
+    script: bootstrap/restart-repo-server.sh
+    cache_key: argocd_repo_restart
+    required: true
+
+  # Step 12: KSOPS package deployment
   - name: ksops_package
     selection_group: secrets_management
     adapter: {secrets_management}
@@ -106,7 +133,7 @@ stages:
     cache_key: ksops_package
     required: true
 
-  # Step 12: ArgoCD repo server readiness
+  # Step 13: ArgoCD repo server readiness
   - name: argocd_repo_ready
     selection_group: gitops_platform
     adapter: {gitops_platform}
@@ -116,7 +143,16 @@ stages:
     required: true
     args: ["--timeout", "120", "--namespace", "$ARGOCD_NAMESPACE"]
 
-  # Step 13: Root application deployment
+  # Step 13: GitHub credentials injection
+  - name: github_identities
+    selection_group: git_provider
+    adapter: {git_provider}
+    description: Inject GitHub App credentials into ArgoCD namespace
+    script: bootstrap/00-inject-identities.sh
+    cache_key: github_identities
+    required: true
+
+  # Step 14: Root application deployment
   - name: root_app_deploy
     selection_group: gitops_platform
     adapter: {gitops_platform}
@@ -126,7 +162,7 @@ stages:
     required: true
     args: ["$MODE", "$ENV"]
 
-  # Step 14: Platform bootstrap sync
+  # Step 15: Platform bootstrap sync
   - name: platform_bootstrap
     selection_group: gitops_platform
     adapter: {gitops_platform}
@@ -135,7 +171,7 @@ stages:
     cache_key: platform_bootstrap
     required: true
 
-  # Step 15: Verify KSOPS
+  # Step 16: Verify KSOPS
   - name: verify_ksops
     selection_group: secrets_management
     adapter: {secrets_management}

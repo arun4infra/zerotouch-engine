@@ -3,6 +3,6 @@ contexts:
   {{ cluster_name }}:
     endpoints:
       - {{ cluster_endpoint.split(':')[0] }}
-    ca: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
-    crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
-    key: LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t
+    ca: {{ secrets.certs.os.crt }}
+    crt: {{ secrets.certs.os.crt }}
+    key: {{ secrets.certs.os.key }}

@@ -145,6 +145,7 @@ class PlatformAdapter(ABC):
         self._jinja_env = jinja_env  # Shared environment from Engine
         self._platform_metadata: Dict[str, Any] = {}  # Store platform metadata (app_name, organization)
         self._all_adapters_config: Dict[str, Dict[str, Any]] = {}  # Store all adapters' config
+        self._version_provider = None  # Lazy-loaded version provider
     
     @property
     @abstractmethod
@@ -311,7 +312,10 @@ class PlatformAdapter(ABC):
     def load_metadata(self) -> Dict[str, Any]:
         """Load adapter.yaml metadata"""
         import yaml
-        metadata_path = Path(__file__).parent / "adapter.yaml"
+        import inspect
+        # Get the actual adapter's module file, not base.py
+        adapter_file = Path(inspect.getfile(self.__class__))
+        metadata_path = adapter_file.parent / "adapter.yaml"
         return yaml.safe_load(metadata_path.read_text())
     
     # Input Collection Customization Methods
@@ -369,7 +373,7 @@ class PlatformAdapter(ABC):
         Example:
             def derive_field_value(self, field_name, current_config):
                 if field_name == "s3_region" and "s3_endpoint" in current_config:
-                    match = re.search(r'https?://([^.]+)\.', current_config["s3_endpoint"])
+                    match = re.search(r'https?://([^.]+)\\.', current_config["s3_endpoint"])
                     if match:
                         return match.group(1)
                 return None
@@ -466,6 +470,25 @@ class PlatformAdapter(ABC):
             return adapter_config
         return adapter_config.get(field_name)
     
+    def _get_version_config(self, adapter_name: str, field_name: str) -> Optional[Any]:
+        """Get version configuration using centralized VersionProvider
+        
+        Args:
+            adapter_name: Name of the adapter (e.g., 'cilium', 'argocd')
+            field_name: Field name (e.g., 'version', 'default_envoy_image')
+        
+        Returns:
+            Version value from platform.yaml or versions.yaml, or None if not found
+        
+        Example:
+            envoy_image = self._get_version_config('cilium', 'default_envoy_image')
+        """
+        if self._version_provider is None:
+            from workflow_engine.services.version_provider import VersionProvider
+            self._version_provider = VersionProvider()
+        
+        return self._version_provider.get_version(adapter_name, field_name)
+    
     async def get_dynamic_choices(
         self, 
         input_prompt: InputPrompt,
@@ -488,3 +511,32 @@ class PlatformAdapter(ABC):
         
         # Default: return static choices from input_prompt
         return input_prompt.choices or []
+    
+    @abstractmethod
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context data for this adapter's bootstrap stage
+        
+        Called by bootstrap executor to build stage-specific context file.
+        Adapters MUST implement this method to provide their context data.
+        
+        Args:
+            stage_name: Name of the bootstrap stage being executed
+            all_adapters_config: Configuration from all adapters (for cross-adapter dependencies)
+            
+        Returns:
+            Dictionary with non-sensitive context data safe to write to disk
+            
+        Note:
+            - NEVER return secrets, tokens, passwords, or keys
+            - Context validator will reject any sensitive data
+            - Secrets should be injected via environment variables only
+            
+        Example:
+            def get_stage_context(self, stage_name, all_adapters_config):
+                return {
+                    'cluster_name': self.config.get('cluster_name'),
+                    'server_ips': self.config.get('server_ips', []),
+                    'datacenter': self.config.get('datacenter')
+                }
+        """
+        pass

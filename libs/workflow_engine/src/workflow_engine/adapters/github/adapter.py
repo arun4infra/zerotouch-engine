@@ -20,6 +20,7 @@ class GitHubScripts(str, Enum):
     INJECT_IDENTITIES = "bootstrap/00-inject-identities.sh"
     ENV_SUBSTITUTION = "bootstrap/apply-env-substitution.sh"
     VALIDATE_CREDENTIALS = "validation/validate-github-credentials.sh"
+    SYNC_PLATFORM_REPO = "sync/sync-platform-repo.sh"
 
 
 class GithubAdapter(PlatformAdapter):
@@ -29,6 +30,32 @@ class GithubAdapter(PlatformAdapter):
         """Load adapter.yaml metadata from GitHub adapter directory"""
         metadata_path = Path(__file__).parent / "adapter.yaml"
         return yaml.safe_load(metadata_path.read_text())
+    
+    def get_stage_context(self, stage_name: str, all_adapters_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Return non-sensitive context for GitHub bootstrap stages"""
+        context = {
+            'github_app_id': self.config.get('github_app_id', ''),
+            'github_app_installation_id': self.config.get('github_app_installation_id', ''),
+        }
+        
+        # Extract org/repo from URLs
+        control_plane_url = self.config.get('control_plane_repo_url', '')
+        data_plane_url = self.config.get('data_plane_repo_url', '')
+        context['tenant_repo_url'] = data_plane_url
+        
+        if control_plane_url:
+            url = control_plane_url.removesuffix('.git') if control_plane_url.endswith('.git') else control_plane_url
+            parts = url.split('/')
+            if len(parts) >= 2:
+                context['tenant_org_name'] = parts[-2]
+        
+        if data_plane_url:
+            url = data_plane_url.removesuffix('.git') if data_plane_url.endswith('.git') else data_plane_url
+            parts = url.split('/')
+            if len(parts) >= 1:
+                context['tenant_repo_name'] = parts[-1]
+        
+        return context
     
     @property
     def config_model(self) -> Type[GitHubConfig]:
@@ -276,6 +303,34 @@ class GithubAdapter(PlatformAdapter):
                 context_data={
                     "tenant_org": tenant_org,
                     "tenant_repo": f"{tenant_repo}-tenants"
+                }
+            )
+        ]
+    
+    def sync_scripts(self) -> List[ScriptReference]:
+        """Return sync scripts to push platform manifests to control plane repo"""
+        config = GitHubConfig(**self.config)
+        
+        # Extract org and repo from control plane URL
+        import re
+        match_cp = re.match(r"^https://github\.com/([^/]+)/([^/]+?)(\.git)?/?$", config.control_plane_repo_url.rstrip('/'))
+        cp_org = match_cp.group(1)
+        cp_repo = match_cp.group(2)
+        
+        return [
+            ScriptReference(
+                package="workflow_engine.adapters.github.scripts",
+                resource=GitHubScripts.SYNC_PLATFORM_REPO,
+                description="Sync platform manifests to control plane repository",
+                timeout=300,
+                context_data={
+                    "control_plane_repo_url": config.control_plane_repo_url,
+                    "platform_repo_branch": "platform-manifests-update",
+                    "tenant_org_name": cp_org,
+                    "control_plane_repo_name": cp_repo
+                },
+                secret_env_vars={
+                    "GIT_APP_PRIVATE_KEY": config.github_app_private_key.get_secret_value()
                 }
             )
         ]

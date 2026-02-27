@@ -9,7 +9,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/provider-hetzner:v0.1.0
+  package: xpkg.upbound.io/crossplane-contrib/provider-hetzner:{{ provider_version }}
 ---
 apiVersion: hetzner.crossplane.io/v1alpha1
 kind: ProviderConfig
