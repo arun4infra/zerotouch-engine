@@ -150,7 +150,7 @@ stages:
   selection_group: gitops_platform
   adapter: argocd
   description: Verify ArgoCD child applications
-  script: argocd/scripts/bootstrap/05-verify-child-apps.sh
+  script: argocd/scripts/validation/12-verify-child-apps.sh
   cache_key: null
   required: true
 - name: wait_apps_healthy
