@@ -82,6 +82,13 @@ class InitWorkflow:
         if current_step == "org_name":
             return self._next_question_app_name(state, answer_value)
         elif current_step == "app_name":
+            return self._next_question_lifecycle_engine(state)
+        elif current_step == "lifecycle_engine":
+            if answer_value == "declarative":
+                return self._next_question_management_topology(state)
+            else:
+                return self._next_question_selection(state)
+        elif current_step == "management_topology":
             return self._next_question_selection(state)
         elif current_step.endswith("_selection"):
             return self._next_question_adapter_inputs(state, current_step, answer_value)
@@ -100,6 +107,38 @@ class InitWorkflow:
             "type": "string",
             "prompt": "Application name (lowercase, hyphens only)",
             "help_text": f"Must start with organization name: {org_name}-",
+            "required": True
+        }
+        return {"question": question, "workflow_state": state, "completed": False}
+    
+    def _next_question_lifecycle_engine(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Return lifecycle engine selection question"""
+        state["current_step"] = "lifecycle_engine"
+        question = {
+            "id": "lifecycle_engine",
+            "type": "choice",
+            "prompt": "Select infrastructure lifecycle engine",
+            "help_text": "Choose how cluster infrastructure will be managed",
+            "choices": [
+                {"value": "static", "label": "Static Infrastructure (ZTC-managed)"},
+                {"value": "declarative", "label": "Declarative Infrastructure (CAPI-managed)"}
+            ],
+            "required": True
+        }
+        return {"question": question, "workflow_state": state, "completed": False}
+    
+    def _next_question_management_topology(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Return management topology selection question (declarative only)"""
+        state["current_step"] = "management_topology"
+        question = {
+            "id": "management_topology",
+            "type": "choice",
+            "prompt": "Select management topology",
+            "help_text": "Enterprise: Separate Management Hub manages Workload clusters. Converged: Dev cluster self-manages (dev only)",
+            "choices": [
+                {"value": "enterprise", "label": "Enterprise (Separate Management Hub)"},
+                {"value": "converged", "label": "Converged (Self-managing dev cluster)"}
+            ],
             "required": True
         }
         return {"question": question, "workflow_state": state, "completed": False}
@@ -410,40 +449,50 @@ class InitWorkflow:
     def generate_platform_yaml(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """Generate final platform.yaml from collected answers"""
         import yaml
-        
+
         platform_data = {
             "version": "1.0",
             "platform": {
                 "organization": state["answers"].get("org_name"),
-                "app_name": state["answers"].get("app_name")
+                "app_name": state["answers"].get("app_name"),
+                "lifecycle_engine": state["answers"].get("lifecycle_engine")
             },
             "adapters": {}
         }
-        
+
+        # Add management_topology if lifecycle_engine is declarative
+        if state["answers"].get("lifecycle_engine") == "declarative":
+            platform_data["platform"]["management_topology"] = state["answers"].get("management_topology")
+
         for key, value in state["answers"].items():
             if key.endswith("_selection"):
                 adapter_name = value
                 group_name = key.replace("_selection", "")
                 config_key = f"{group_name}_config"
                 config = state["answers"].get(config_key, {})
-                
+
                 if isinstance(config, str) and config:
                     try:
                         config = json.loads(config)
                     except:
                         config = {}
-                
+
                 adapter = self.registry.get_adapter(adapter_name, {})
                 cleaned_config = self._clean_adapter_config(adapter, config)
-                
+
                 platform_data["adapters"][adapter_name] = cleaned_config
-        
+
         yaml_content = yaml.dump(platform_data, sort_keys=False, default_flow_style=False)
-        
+
         return {"completed": True, "platform_yaml": yaml_content, "workflow_state": state}
+
     
     def _clean_adapter_config(self, adapter, config: dict) -> dict:
         """Remove secrets and parse types properly"""
+        # Check if adapter provides custom cleaning
+        if hasattr(adapter, 'clean_config') and callable(adapter.clean_config):
+            return adapter.clean_config(config)
+        
         cleaned = {}
         config_model = adapter.config_model
         

@@ -1,0 +1,6 @@
+# clusterctl configuration for Hetzner provider
+HCLOUD_REGION: "{{ region | default('fsn1') }}"
+HCLOUD_CONTROL_PLANE_MACHINE_TYPE: "{{ control_plane_machine_type }}"
+HCLOUD_WORKER_MACHINE_TYPE: "{{ worker_machine_type }}"
+CONTROL_PLANE_MACHINE_COUNT: "{{ control_plane_replicas }}"
+WORKER_MACHINE_COUNT: "{{ worker_machine_count }}"

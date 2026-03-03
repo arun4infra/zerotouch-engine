@@ -1,0 +1,22 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HetznerCluster
+metadata:
+  name: {{ cluster_name }}
+  namespace: default
+spec:
+  controlPlaneRegions:
+    - fsn1
+  controlPlaneEndpoint:
+    host: ""
+    port: 443
+  controlPlaneLoadBalancer:
+    region: fsn1
+  sshKeys:
+    hcloud:
+      - name: {{ cluster_name }}-ssh-key
+  hetznerSecretRef:
+    name: hetzner
+    key:
+      hcloudToken: hcloud
+  hcloudNetwork:
+    enabled: false

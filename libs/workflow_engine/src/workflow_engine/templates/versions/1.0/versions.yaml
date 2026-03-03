@@ -94,6 +94,12 @@ adapters:
     default_kubelet_image: "ghcr.io/siderolabs/kubelet:v1.34.2"
     default_coredns_image: "registry.k8s.io/coredns/coredns:v1.11.1"
   
+  cluster_api:
+    default_kubernetes_version: v1.31.0
+    default_talos_version: v1.8
+    default_talos_installer_image: "ghcr.io/siderolabs/installer:v1.8.3"
+    default_hcloud_base_image: "ubuntu-24.04"
+  
   hetzner:
     default_version: v1.0.0
   

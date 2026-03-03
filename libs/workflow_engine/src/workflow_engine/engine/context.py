@@ -25,9 +25,14 @@ class CapabilityConflictError(Exception):
 class ContextSnapshot:
     """Immutable snapshot of platform context (read-only for adapters)"""
     
-    def __init__(self, capabilities: Dict[Capability, BaseModel], outputs: Dict[str, AdapterOutput]):
+    def __init__(self, capabilities: Dict[Capability, BaseModel], outputs: Dict[str, AdapterOutput], 
+                 platform_config: Dict[str, Any] = None, adapters_config: Dict[str, Dict[str, Any]] = None,
+                 env_vars: Dict[str, str] = None):
         self._capabilities = capabilities.copy()
         self._outputs = outputs.copy()
+        self.platform_config = platform_config or {}
+        self.adapters_config = adapters_config or {}
+        self.env_vars = env_vars or {}
         self.environment = "production"
     
     def get_capability_data(self, capability: Capability) -> BaseModel:
@@ -52,9 +57,12 @@ class ContextSnapshot:
 class PlatformContext:
     """Mutable context managed by Engine (not exposed to adapters)"""
     
-    def __init__(self):
+    def __init__(self, platform_config: Dict[str, Any] = None, adapters_config: Dict[str, Dict[str, Any]] = None):
         self._outputs: Dict[str, AdapterOutput] = {}
         self._capabilities: Dict[Capability, BaseModel] = {}
+        self.platform_config = platform_config or {}
+        self.adapters_config = adapters_config or {}
+        self.env_vars: Dict[str, str] = {}
         self.environment = "production"
     
     def register_output(self, adapter_name: str, output: AdapterOutput):
@@ -74,7 +82,13 @@ class PlatformContext:
             self._capabilities[capability] = capability_data
     
     def snapshot(self) -> ContextSnapshot:
-        return ContextSnapshot(capabilities=self._capabilities, outputs=self._outputs)
+        return ContextSnapshot(
+            capabilities=self._capabilities, 
+            outputs=self._outputs,
+            platform_config=self.platform_config,
+            adapters_config=self.adapters_config,
+            env_vars=self.env_vars
+        )
     
     def has_capability(self, capability: Capability) -> bool:
         return capability in self._capabilities

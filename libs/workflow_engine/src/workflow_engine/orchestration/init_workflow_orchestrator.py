@@ -52,7 +52,7 @@ class InitWorkflowOrchestrator:
         # Process answer through workflow
         result = self.workflow.answer(state, answer_value)
         
-        # Save org_name and app_name when collected
+        # Save org_name, app_name, and lifecycle_engine when collected
         if result.get("workflow_state"):
             answers = result["workflow_state"].get("answers", {})
             if "org_name" in answers and "app_name" in answers:
@@ -69,6 +69,8 @@ class InitWorkflowOrchestrator:
                 
                 config.platform.organization = answers["org_name"]
                 config.platform.app_name = answers["app_name"]
+                if "lifecycle_engine" in answers:
+                    config.platform.lifecycle_engine = answers["lifecycle_engine"]
                 self.config_service.save(config)
         
         # If validation completed, save all validated adapters

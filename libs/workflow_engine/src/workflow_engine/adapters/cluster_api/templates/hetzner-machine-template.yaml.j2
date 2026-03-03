@@ -1,0 +1,10 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: HCloudMachineTemplate
+metadata:
+  name: {{ cluster_name }}-{{ pool_name }}-machine
+  namespace: default
+spec:
+  template:
+    spec:
+      type: {{ machine_type }}
+      imageName: {{ hcloud_base_image }}

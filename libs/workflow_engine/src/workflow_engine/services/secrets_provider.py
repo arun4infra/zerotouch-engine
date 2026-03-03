@@ -68,7 +68,9 @@ class SecretsProvider:
             Dictionary of {secret_name: {key: value}}
         """
         secrets = {}
-        secrets_dir = Path('platform/generated/secrets')
+        
+        # Resolve secrets directory relative to platform.yaml
+        secrets_dir = platform_yaml_path.parent / 'generated' / 'secrets'
         
         if not secrets_dir.exists():
             print(f"ℹ️  Secrets directory not found: {secrets_dir}")

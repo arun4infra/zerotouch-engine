@@ -64,7 +64,7 @@ We chose specific tools to minimize "Day 2" complexity.
 | :--- | :--- | :--- |
 | **OS** | **Talos Linux** | Immutable, API-driven, maintenance-free. |
 | **GitOps** | **ArgoCD** | Standardizes deployment. Handles "App-of-Apps" pattern. |
-| **Secrets** | **External Secrets Operator** | Syncs from AWS Parameter Store. No local `.env` files or manual secret management. |
+| **Secrets** | **KSOPS (Age Encryption)** | All secrets encrypted with Age keys in Git. No external secret stores. |
 | **Provisioning** | **Crossplane** | Allows us to define "Legos" (XRDs) like `XPostgres` or `XWebService`. |
 | **Database** | **CloudNativePG** | Enterprise-grade HA, automated failover, and Point-In-Time Recovery. |
 | **Messaging** | **NATS** | Simpler than Kafka, lighter than RabbitMQ. Ideal for agentic control planes. |
@@ -137,10 +137,8 @@ We use automated scripts to provision the entire platform from scratch.
 # Bootstrap control plane with Talos + ArgoCD + Platform
 ./scripts/bootstrap/01-master-bootstrap.sh <server-ip> <root-password>
 
-# Inject AWS credentials for External Secrets Operator
-export AWS_ACCESS_KEY_ID="your-key"
-export AWS_SECRET_ACCESS_KEY="your-secret"
-./scripts/bootstrap/03-inject-secrets.sh $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY
+# Age key is automatically generated and injected during bootstrap
+# No manual secret injection required
 ```
 
 #### Multi-Node Cluster
@@ -159,40 +157,37 @@ export AWS_SECRET_ACCESS_KEY="your-secret"
 
 ### Secrets Management
 
-Secrets are stored in **AWS Systems Manager Parameter Store** and synced to the cluster via External Secrets Operator (ESO).
+All secrets are managed via **KSOPS (Kubernetes Secret Operations)** with Age encryption. Secrets are encrypted and committed to Git, then decrypted by ArgoCD during deployment.
 
-#### Automated SSM Injection (Recommended)
+#### Secret-Zero Pattern
 
-The platform provides a generic script to inject all secrets from a single file:
+The platform uses a "Secret-Zero" bootstrap pattern:
+
+1. **Bootstrap**: ZTC CLI generates Age private key during `ztc bootstrap`
+2. **Injection**: Age key injected into ArgoCD Repo Server on Management Cluster
+3. **Encryption**: All secrets encrypted with Age public key before Git commit
+4. **Decryption**: KSOPS plugin decrypts secrets on Management Cluster during ArgoCD sync
+5. **Transmission**: Only plaintext manifests transmitted to Workload clusters over mTLS
+
+#### KSOPS Setup
 
 ```bash
-# 1. Create secrets file from template
-cp .env.ssm.example .env.ssm
+# 1. Generate Age key pair (done automatically during bootstrap)
+age-keygen -o age-key.txt
 
-# 2. Edit .env.ssm with your actual secrets
-vim .env.ssm
+# 2. Encrypt secrets before committing to Git
+sops --age <public-key> --encrypt secret.yaml > secret.enc.yaml
 
-# 3. Inject all parameters to AWS SSM (SecureString type)
-./scripts/bootstrap/06-inject-ssm-parameters.sh
+# 3. Commit encrypted secrets to Git
+git add secret.enc.yaml
+git commit -m "Add encrypted secret"
 
-# 4. Inject ESO credentials into cluster (one-time)
-./scripts/bootstrap/05-inject-secrets.sh <AWS_ACCESS_KEY_ID> <AWS_SECRET_ACCESS_KEY>
-
-# 5. Verify secrets are syncing
-kubectl get externalsecret -A
-kubectl get clustersecretstore aws-parameter-store
+# 4. ArgoCD automatically decrypts during sync (KSOPS plugin)
 ```
 
-**`.env.ssm` Format:**
-```bash
-# Each line: /path/to/parameter=value
-/zerotouch/prod/kagent/openai_api_key=sk-your-key-here
-/zerotouch/prod/agent-executor/postgres/password=secure_password
-/zerotouch/prod/agent-executor/openai_api_key=sk-your-key-here
-```
-
-**Benefits:**
-- Single source of truth for all secrets
-- Idempotent (can run multiple times)
-- Generic (works for any service)
-- Secure (`.env.ssm` is gitignored, parameters encrypted at rest)
+**Benefits**:
+- Single secret management approach (no external stores)
+- Secrets versioned in Git alongside code
+- Audit trail for all secret changes
+- Age private key never leaves Management Cluster
+- Workload clusters never have access to encryption keys

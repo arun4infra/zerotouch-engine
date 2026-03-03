@@ -1,0 +1,19 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineHealthCheck
+metadata:
+  name: {{ pool_name }}-health
+  namespace: default
+spec:
+  clusterName: {{ cluster_name }}
+  maxUnhealthy: 40%
+  nodeStartupTimeout: 15m
+  selector:
+    matchLabels:
+      pool: {{ pool_name }}
+  unhealthyConditions:
+    - type: Ready
+      status: Unknown
+      timeout: 5m
+    - type: Ready
+      status: "False"
+      timeout: 5m

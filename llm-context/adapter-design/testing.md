@@ -1,19 +1,13 @@
 ## Testing Strategy
 
 ### Unit Tests
-- Adapter configuration validation (Pydantic models)
-- Capability contract enforcement
-- Script reference validation
+- No Unit tests to be written.
 
 ### Integration Tests
 **Critical Principle: Same Code Paths as Production**
 - Tests must use the exact same service classes, dependency injection, and business logic as production
 - This ensures maximum code coverage and validates actual production behavior
-
-### End-to-End Tests
-- Full workflow (init → render → validate)
-- Script extraction and execution (mocked)
-- Lock file generation and validation
+- Tests must not hold any core or business logics in it. It should hold testing and asserting logics. Production flow should not require re-implementation of logics from test case.
 
 ## Summary
 
@@ -30,19 +24,10 @@ The key innovation is replacing CLI arguments with JSON context files while pres
 
 ## Testing Strategy
 
-### Unit Tests
-- Adapter configuration validation (Pydantic models)
-- Capability contract enforcement
-- Script reference validation
-- Script contract validation (META_REQUIRE headers)
-
 ### Integration Tests
-- Adapter rendering with mocked APIs
+- Adapter rendering with real APIs
 - Capability data flow between adapters
 - Context file generation and parsing
 - Pre-flight health checks
-
-### End-to-End Tests
-- Full workflow (init → render → validate)
-- Script extraction and execution (mocked)
-- Lock file generation and validation
+- Test cases must never be skipped
+- Tests uses age key provider to decrypt the keys in secrets. secrets will never be exported. The secrets are decrypted at runtime using the Age key provider and SOPS.

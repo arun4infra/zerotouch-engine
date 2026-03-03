@@ -1,0 +1,16 @@
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
+metadata:
+  name: {{ pool_name }}-bootstrap
+  namespace: default
+spec:
+  template:
+    spec:
+      generateType: worker
+      talosVersion: {{ talos_version }}
+      configPatches:
+        - op: add
+          path: /machine/install
+          value:
+            disk: /dev/sda
+            image: {{ talos_installer_image }}
